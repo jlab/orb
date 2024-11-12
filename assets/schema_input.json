@@ -1,0 +1,25 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema",
+    "$id": "https://raw.githubusercontent.com/jlab/refbasedassemblereval/master/assets/schema_input.json",
+    "title": "jlab/refbasedassemblereval pipeline - params.input schema",
+    "description": "Schema for the file provided with params.input",
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "sample": {
+                "type": "string",
+                "pattern": "^\\S+$",
+                "errorMessage": "Sample name must be provided and cannot contain spaces"
+            },
+            "assemblers": {
+                "type": "array",
+                "items": {
+                    "type": "string"
+                },
+                "errorMessage": "An array of assemblers for reads 1 must be provided"
+            },
+        },
+        "required": ["sample", "assemblers"]
+    }
+}
