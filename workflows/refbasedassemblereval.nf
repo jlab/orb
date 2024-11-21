@@ -57,6 +57,8 @@ include { QUAST as QUAST_ASSEMBLER    } from '../modules/nf-core/quast/main'
 include { QUAST as QUAST              } from '../modules/nf-core/quast/main'
 include { SALMON_INDEX                } from '../modules/local/salmon/index/main'
 include { SALMON_QUANT                } from '../modules/local/salmon/quant/main'
+include { MINIMAP2_MAP                } from '../modules/local/minimap2/map/main'
+include { MINIMAP2_DEDUP              } from '../modules/local/scripts/minimap2dedup/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -74,9 +76,6 @@ workflow ASSEMBLEREVAL {
     //
     // SUBWORKFLOW: Read in samplesheet, validate and stage input files
     //
-    INPUT_CHECK_CONTIGS (
-        file(params.input)
-    )
 
     INPUT_CHECK_READS (
         file(params.reads)
@@ -87,9 +86,33 @@ workflow ASSEMBLEREVAL {
     // See the documentation https://nextflow-io.github.io/nf-validation/samplesheets/fromSamplesheet/
     // ! There is currently no tooling to help you write a sample sheet schema
 
-    sample_assemblers = INPUT_CHECK_CONTIGS.out.assembler
+    sample_assemblers = Channel.fromPath(params.contigs)
     reads = INPUT_CHECK_READS.out.reads
+    reference_cds = Channel.fromPath(params.reference_cds)
 
+    //sample_assemblers.view()
+    //reads.view()
+
+    sample_assemblers.map {
+        assembler ->
+        [["id":assembler.baseName.replace('_contigs', '')], assembler]
+    }
+    .combine(reference_cds)
+    .multiMap { it ->
+        reads: tuple(it[0], it[1])
+        reference: tuple(["id": "mt_reference"], it[2])
+    }.set{ contigs_ref }
+    
+    MINIMAP2_MAP(
+        contigs_ref.reads,
+        contigs_ref.reference
+    )
+
+    MINIMAP2_DEDUP (
+        MINIMAP2_MAP.out.mapping
+    )
+
+    /*
     ass_contigs = sample_assemblers.map {
         sample_id, assembler ->
         contigs = assembler.values()
@@ -215,6 +238,7 @@ workflow ASSEMBLEREVAL {
     CUSTOM_DUMPSOFTWAREVERSIONS (
         ch_versions.unique().collectFile(name: 'collated_versions.yml')
     )
+    */
 }
 
 /*
