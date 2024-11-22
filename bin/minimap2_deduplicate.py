@@ -11,8 +11,13 @@ import json
 # Matching bases in col 10 (9 with index 0)
 
 file_path = sys.argv[1]
-minimap_results = pd.read_csv(file_path, sep="\t", header=None)
 minimap_file_basename = os.path.basename(file_path)
+
+if os.path.exists(file_path) and os.path.getsize(file_path) == 0:
+    with open(f"{minimap_file_basename}_dedup.json", 'w') as json_file:
+        json.dump({}, json_file)
+
+minimap_results = pd.read_csv(file_path, sep="\t", header=None)
 
 indices = pd.Index([])
 

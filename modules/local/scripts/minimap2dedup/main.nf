@@ -18,6 +18,6 @@ process MINIMAP2_DEDUP {
     def args = task.ext.args ?: ''
 
     """
-    python /homes/tlin/Projects/refbasedassemblereval/bin/minimap2_deduplicate.py${mapping} 
+    python /container/bin/minimap2_deduplicate.py ${mapping} 
     """
 }
