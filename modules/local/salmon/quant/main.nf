@@ -20,7 +20,7 @@ process SALMON_QUANT {
 
     script:
     def args = task.ext.args   ?: ''
-    prefix   = task.ext.prefix ?: "${meta.id}_index."
+    prefix   = task.ext.prefix ?: "${meta.id}"
 
     def reference   = "--index $index"
     def reads1 = [], reads2 = []
@@ -35,6 +35,8 @@ process SALMON_QUANT {
     ]
     def strandedness =  'A'
     """
+    export TAR_OPTIONS="--no-same-owner"
+
     salmon quant \\
         --threads $task.cpus \\
         --libType=$strandedness \\
