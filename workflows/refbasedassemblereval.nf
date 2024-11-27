@@ -61,6 +61,8 @@ include { MINIMAP2_MAP                } from '../modules/local/minimap2/map/main
 include { MINIMAP2_DEDUP              } from '../modules/local/scripts/minimap2dedup/main'
 include { BOWTIE2_BUILD               } from '../modules/nf-core/bowtie2/build/main'
 include { BOWTIE2_ALIGN               } from '../modules/nf-core/bowtie2/align/main'
+include { BEDTOOLS_BAMTOBED           } from '../modules/nf-core/bedtools/bamtobed/main'
+include { SCRIPT_MAPPING_STATS        } from '../modules/local/scripts/mapping_stats/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -91,6 +93,7 @@ workflow ASSEMBLEREVAL {
     sample_assemblers = Channel.fromPath(params.contigs)
     reads = INPUT_CHECK_READS.out.reads
     reference_cds = Channel.fromPath(params.reference_cds)
+    gene_summary = Channel.fromPath(params.gene_summary)
 
     sample_assemblers.map {
         assembler ->
@@ -144,7 +147,15 @@ workflow ASSEMBLEREVAL {
     .combine(Channel.of(true))
     .combine(Channel.of(false))
     .multiMap { it ->
-        reads: tuple(it[0], it[1])
+        reads: tuple(
+             [
+                "id"           : it[0]["id"] + "_" + it[2]["id"],
+                "single_end"   : it[0]["single_end"],
+                "read_id"      : it[0]["id"],
+                "assembler_id" : it[2]["id"]
+            ],
+            it[1]
+        )
         index: tuple(it[2], it[3])
         save_unaligned: it[4]
         sort_bam: it[5]
@@ -156,6 +167,30 @@ workflow ASSEMBLEREVAL {
         reads_index_ch.save_unaligned,
         reads_index_ch.sort_bam
     )
+
+    BEDTOOLS_BAMTOBED(
+        BOWTIE2_ALIGN.out.aligned
+    )
+
+    //TODO call the script and cat the bed files
+
+    BEDTOOLS_BAMTOBED.out.bed.combine(
+        BOWTIE2_ALIGN.out.log, by: 0
+    ).combine(
+        gene_summary
+    ).multiMap { it ->
+        bed: tuple(it[0], it[1])
+        gene_summary: tuple([:], it[3])
+        log: tuple(it[0], it[2])
+    }.set{ bed_gene_summary }
+
+    SCRIPT_MAPPING_STATS(
+        bed_gene_summary.bed,
+        bed_gene_summary.gene_summary,
+        bed_gene_summary.log
+    )
+
+
 
     /*
     ass_contigs = sample_assemblers.map {
