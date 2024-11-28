@@ -63,6 +63,7 @@ include { BOWTIE2_BUILD               } from '../modules/nf-core/bowtie2/build/m
 include { BOWTIE2_ALIGN               } from '../modules/nf-core/bowtie2/align/main'
 include { BEDTOOLS_BAMTOBED           } from '../modules/nf-core/bedtools/bamtobed/main'
 include { SCRIPT_MAPPING_STATS        } from '../modules/local/scripts/mapping_stats/main'
+include { ASSEMBLYREADSTATS           } from '../modules/local/scripts/assembly_read_stats/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -173,7 +174,7 @@ workflow ASSEMBLEREVAL {
     )
 
     //TODO call the script and cat the bed files
-
+/*
     BEDTOOLS_BAMTOBED.out.bed.combine(
         BOWTIE2_ALIGN.out.log, by: 0
     ).combine(
@@ -184,13 +185,28 @@ workflow ASSEMBLEREVAL {
         log: tuple(it[0], it[2])
     }.set{ bed_gene_summary }
 
-    SCRIPT_MAPPING_STATS(
+        SCRIPT_MAPPING_STATS(
         bed_gene_summary.bed,
         bed_gene_summary.gene_summary,
         bed_gene_summary.log
     )
+*/
+    BEDTOOLS_BAMTOBED.out.bed.map {
+        meta = ["id": it[0]["assembler_id"]]
+        [meta, it[1]]
+    }.groupTuple()
+    .combine(
+        gene_summary
+    ).multiMap { it ->
+        bed: tuple(it[0], it[1])
+        gene_summary: tuple([:], it[2])
+    }.set{ bed_gene_summary }
 
 
+    ASSEMBLYREADSTATS(
+        bed_gene_summary.bed,
+        bed_gene_summary.gene_summary
+    )
 
     /*
     ass_contigs = sample_assemblers.map {
