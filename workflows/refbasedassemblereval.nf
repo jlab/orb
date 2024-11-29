@@ -64,6 +64,8 @@ include { BOWTIE2_ALIGN               } from '../modules/nf-core/bowtie2/align/m
 include { BEDTOOLS_BAMTOBED           } from '../modules/nf-core/bedtools/bamtobed/main'
 include { SCRIPT_MAPPING_STATS        } from '../modules/local/scripts/mapping_stats/main'
 include { ASSEMBLYREADSTATS           } from '../modules/local/scripts/assembly_read_stats/main'
+include { MERGEMAPPINGLOGS            } from '../modules/local/scripts/merge_mapping_logs/main'
+include { MERGEALLLOGS                } from '../modules/local/scripts/merge_all_logs/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -174,7 +176,7 @@ workflow ASSEMBLEREVAL {
     )
 
     //TODO call the script and cat the bed files
-/*
+
     BEDTOOLS_BAMTOBED.out.bed.combine(
         BOWTIE2_ALIGN.out.log, by: 0
     ).combine(
@@ -185,12 +187,12 @@ workflow ASSEMBLEREVAL {
         log: tuple(it[0], it[2])
     }.set{ bed_gene_summary }
 
-        SCRIPT_MAPPING_STATS(
+    SCRIPT_MAPPING_STATS(
         bed_gene_summary.bed,
         bed_gene_summary.gene_summary,
         bed_gene_summary.log
     )
-*/
+
     BEDTOOLS_BAMTOBED.out.bed.map {
         meta = ["id": it[0]["assembler_id"]]
         [meta, it[1]]
@@ -206,6 +208,26 @@ workflow ASSEMBLEREVAL {
     ASSEMBLYREADSTATS(
         bed_gene_summary.bed,
         bed_gene_summary.gene_summary
+    )
+
+    SCRIPT_MAPPING_STATS.out.logs.map {
+        meta = ["id": it[0]["assembler_id"]]
+        [meta, it[1]]
+    }.groupTuple()
+    .set{ logs }
+
+    MERGEMAPPINGLOGS (
+        logs
+    )
+
+    MERGEMAPPINGLOGS.out.log_mean.map {
+        meta = ["id": "all_assembler"]
+        [meta, it[1]]
+    }.groupTuple()
+    .set { all_logs }
+
+    MERGEALLLOGS (
+        all_logs
     )
 
     /*

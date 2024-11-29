@@ -11,8 +11,8 @@ process SCRIPT_MAPPING_STATS {
     tuple val(meta3), path(logs)
 
     output:
-    tuple val(meta), path("${prefix}.tsv")   , emit: counts
-    path "${prefix}_log.tsv"                 , emit: logs
+    tuple val(meta), path("${prefix}.tsv")        , emit: counts
+    tuple val(meta), path("${prefix}_log.tsv")    , emit: logs
 
     when:
     task.ext.when == null || task.ext.when
