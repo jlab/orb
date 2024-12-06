@@ -66,6 +66,8 @@ include { SCRIPT_MAPPING_STATS        } from '../modules/local/scripts/mapping_s
 include { ASSEMBLYREADSTATS           } from '../modules/local/scripts/assembly_read_stats/main'
 include { MERGEMAPPINGLOGS            } from '../modules/local/scripts/merge_mapping_logs/main'
 include { MERGEALLLOGS                } from '../modules/local/scripts/merge_all_logs/main'
+include { SUMMARIZEMAPPINGSTATS       } from '../modules/local/scripts/summarizemapping/main'
+include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG  } from '../modules/local/scripts/merge_dataframes/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -228,6 +230,32 @@ workflow ASSEMBLEREVAL {
 
     MERGEALLLOGS (
         all_logs
+    )
+
+    SUMMARIZEMAPPINGSTATS(
+        ASSEMBLYREADSTATS.out.counts
+    )
+
+    SUMMARIZEMAPPINGSTATS.out.mapping_stats.map {
+        [it[1]]
+    }.collect()
+    .map {
+        [["id": "all_assembler_mapping_stats"], it[0]]
+    }. set { all_mapping_stats }
+
+    SUMMARIZEMAPPINGSTATS.out.contig_gene_stats.map {
+        [it[1]]
+    }.collect()
+    .map {
+        [["id": "all_assembler_contig_gene_stats"], it[0]]
+    }. set { contig_gene_stats }
+
+    MERGEDATAFRAMESMAPPING(
+        all_mapping_stats
+    )
+
+    MERGEDATAFRAMECONTIG(
+        contig_gene_stats
     )
 
     /*
