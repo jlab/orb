@@ -9,8 +9,8 @@ process SUMMARIZEMAPPINGSTATS {
     tuple val(meta), path(mapping_stats)
 
     output:
-    tuple val(meta), path("${prefix}_mapping_stats.csv")       , emit: mapping_stats
-    tuple val(meta), path("${prefix}_contig_gene_stats")     , emit: contig_gene_stats
+    tuple val(meta), path("${prefix}_mapping_stats.tsv")       , emit: mapping_stats
+    tuple val(meta), path("${prefix}_contig_gene_stats.tsv")     , emit: contig_gene_stats
 
     when:
     task.ext.when == null || task.ext.when

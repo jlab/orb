@@ -35,7 +35,8 @@ for cds in minimap_results[5].unique():
 minimap_filtered = minimap_results.drop(indices)
 minimap_filtered["target_identity"] = minimap_filtered[9] / minimap_filtered[6]
 
-# minimap_filtered[minimap_filtered["target_identity"] > 0.9][[0,5]].to_csv(f"{minimap_file_basename}_dedup.tsv", index=False, header=False, sep="\t")
+
+minimap_filtered = minimap_filtered[minimap_filtered["target_identity"] > 0.95]#[[0,5]].to_csv(f"{minimap_file_basename}_dedup.tsv", index=False, header=False, sep="\t")
 
 key_val_dict = dict(zip(minimap_filtered[0], minimap_filtered[5]))
 

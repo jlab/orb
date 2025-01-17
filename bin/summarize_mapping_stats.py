@@ -6,7 +6,7 @@ summary_df = sys.argv[1]
 
 assembler_name = sys.argv[2]
 
-gene_counts = gene_summary[[col for col in list(gene_summary.columns) if col.startswith("sample")]]
+summary_df = pd.read_csv(summary_df, sep="\t", index_col=0)
 
 origin_gene_stats = summary_df["origin_gene_nunique"].describe()
 origin_og_stats = summary_df["orthogroup_nunique"].describe()
@@ -24,5 +24,5 @@ summary_genes.columns = [f"{assembler_name}_{col}" for col in summary_genes.colu
 summary_mapping_stats = pd.DataFrame([number_of_genes_with_one_read_mapped, number_of_reads_with_duplicated_mapping], columns=[f"{assembler_name}_mapping_stats"],
                                      index=["number_of_genes_with_one_read_mapped", "number_of_reads_with_duplicated_read_mapping"])
 
-summary_mapping_stats.to_csv(f"{assembler_name}_mapping_stats.csv")
-summary_genes.to_csv(f"{assembler_name}_contig_gene_stats.csv")
+summary_mapping_stats.to_csv(f"{assembler_name}_mapping_stats.tsv", sep="\t")
+summary_genes.to_csv(f"{assembler_name}_contig_gene_stats.tsv", sep="\t")

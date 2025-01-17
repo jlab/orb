@@ -59,7 +59,7 @@ include { SALMON_INDEX                } from '../modules/local/salmon/index/main
 include { SALMON_QUANT                } from '../modules/local/salmon/quant/main'
 include { MINIMAP2_MAP                } from '../modules/local/minimap2/map/main'
 include { MINIMAP2_DEDUP              } from '../modules/local/scripts/minimap2dedup/main'
-include { BOWTIE2_BUILD               } from '../modules/nf-core/bowtie2/build/main'
+include { BOWTIE2_BUILD; BOWTIE2_BUILD as BOWTIE2_BUILD_REFERENCE} from '../modules/nf-core/bowtie2/build/main'
 include { BOWTIE2_ALIGN               } from '../modules/nf-core/bowtie2/align/main'
 include { BEDTOOLS_BAMTOBED           } from '../modules/nf-core/bedtools/bamtobed/main'
 include { SCRIPT_MAPPING_STATS        } from '../modules/local/scripts/mapping_stats/main'
@@ -67,8 +67,8 @@ include { ASSEMBLYREADSTATS           } from '../modules/local/scripts/assembly_
 include { MERGEMAPPINGLOGS            } from '../modules/local/scripts/merge_mapping_logs/main'
 include { MERGEALLLOGS                } from '../modules/local/scripts/merge_all_logs/main'
 include { SUMMARIZEMAPPINGSTATS       } from '../modules/local/scripts/summarizemapping/main'
-include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG  } from '../modules/local/scripts/merge_dataframes/main'
-
+include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG ; MERGEDATAFRAMES as MERGEDATAFRAMESBED } from '../modules/local/scripts/merge_dataframes/main'
+include { GENERATEBLOCKS              } from '../modules/local/scripts/generate_blocks/main'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -140,6 +140,81 @@ workflow ASSEMBLEREVAL {
         reads_combined
     )
     */
+    
+    reference_cds.map {
+        assembler ->
+        [["id": "reference"], assembler]
+    }.set{ reference_cds_val }
+    
+    BOWTIE2_BUILD_REFERENCE(
+        reference_cds_val
+    )
+
+    reads
+    .combine(
+        BOWTIE2_BUILD_REFERENCE.out.index
+    )
+    .combine(Channel.of(true))
+    .combine(Channel.of(false))
+    .multiMap { it -> 
+        reads: tuple(it[0], it[1])
+        index: tuple(it[2], it[3])
+        save_unaligned: it[4]
+        sort_bam: it[5]
+    }.set {reads_ref_ch}
+
+    BOWTIE2_ALIGN(
+        reads_ref_ch.reads,
+        reads_ref_ch.index,
+        reads_ref_ch.save_unaligned,
+        reads_ref_ch.sort_bam
+    )
+
+    BEDTOOLS_BAMTOBED(
+        BOWTIE2_ALIGN.out.aligned
+    )
+
+    BEDTOOLS_BAMTOBED.out.bed.map {
+        [it[1]]
+    }.collect()
+    .map {
+        [["id": "all_reference_bed"], it]
+    }. set { all_reference_bed }
+
+    MERGEDATAFRAMESBED(
+        all_reference_bed
+    )
+
+    MERGEDATAFRAMESBED.out.merged_dfs.combine(
+        reference_cds
+    ). set { reference_cds_bed }
+
+    GENERATEBLOCKS(
+        reference_cds_bed
+    )
+
+    sample_assemblers.map {
+        assembler ->
+        [["id":assembler.baseName.replace('_contigs', '')], assembler]
+    }
+    .combine(GENERATEBLOCKS.out.blocks)
+    .multiMap { it ->
+        contigs: tuple(it[0], it[1])
+        blocks: tuple(it[2], it[3])
+    }.set{ contigs_blocks }
+
+    MINIMAP2_MAP(
+        contigs_blocks.contigs,
+        contigs_blocks.blocks
+    )
+
+    MINIMAP2_DEDUP (
+        MINIMAP2_MAP.out.mapping
+    )
+
+//    contigs_blocks.blocks.view()
+
+    /*
 
     BOWTIE2_BUILD(
         id_sample_assemblers
@@ -235,7 +310,9 @@ workflow ASSEMBLEREVAL {
     SUMMARIZEMAPPINGSTATS(
         ASSEMBLYREADSTATS.out.counts
     )
+    */
 
+    /*
     SUMMARIZEMAPPINGSTATS.out.mapping_stats.map {
         [it[1]]
     }.collect()
@@ -257,6 +334,9 @@ workflow ASSEMBLEREVAL {
     MERGEDATAFRAMECONTIG(
         contig_gene_stats
     )
+    */
+
+    
 
     /*
     ass_contigs = sample_assemblers.map {

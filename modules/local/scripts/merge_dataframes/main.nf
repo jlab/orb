@@ -19,6 +19,6 @@ process MERGEDATAFRAMES {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python /container/bin/merge_dataframes.py ${logs} > ${prefix}.tsv
+    python /container/bin/merge_dataframes.py ${dfs} > ${prefix}.tsv
     """
 }

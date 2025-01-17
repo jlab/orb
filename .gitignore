@@ -6,9 +6,10 @@ results/
 testing/
 testing*
 *.pyc
-
+archive/
 null/
 test/
+datset2_test/
 
 bin/*pdf
 *-checkpoint.ipynb
