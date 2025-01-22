@@ -33,10 +33,14 @@ for cds in minimap_results[5].unique():
         indices = indices.append(minimap_results[max_vals].sample(n=logic_vals_sum - 1).index)
 
 minimap_filtered = minimap_results.drop(indices)
-minimap_filtered["target_identity"] = minimap_filtered[9] / minimap_filtered[6]
+minimap_filtered["correctly_mapped_bases"] = minimap_filtered[9] / minimap_filtered[6]
+minimap_filtered["covered_reference"] = minimap_filtered[10] / minimap_filtered[6]
 
-
-minimap_filtered = minimap_filtered[minimap_filtered["target_identity"] > 0.95]#[[0,5]].to_csv(f"{minimap_file_basename}_dedup.tsv", index=False, header=False, sep="\t")
+minimap_filtered = minimap_filtered[minimap_filtered["correctly_mapped_bases"] >= 0.95]
+minimap_filtered = minimap_filtered[
+    (minimap_filtered["covered_reference"] <= 1.05) |
+    (minimap_filtered["covered_reference"] >= 0.95)
+]
 
 key_val_dict = dict(zip(minimap_filtered[0], minimap_filtered[5]))
 

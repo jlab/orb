@@ -58,7 +58,7 @@ include { QUAST as QUAST              } from '../modules/nf-core/quast/main'
 include { SALMON_INDEX                } from '../modules/local/salmon/index/main'
 include { SALMON_QUANT                } from '../modules/local/salmon/quant/main'
 include { MINIMAP2_MAP                } from '../modules/local/minimap2/map/main'
-include { MINIMAP2_DEDUP              } from '../modules/local/scripts/minimap2dedup/main'
+include { MINIMAP2_FILTER              } from '../modules/local/scripts/minimap2dedup/main'
 include { BOWTIE2_BUILD; BOWTIE2_BUILD as BOWTIE2_BUILD_REFERENCE} from '../modules/nf-core/bowtie2/build/main'
 include { BOWTIE2_ALIGN               } from '../modules/nf-core/bowtie2/align/main'
 include { BEDTOOLS_BAMTOBED           } from '../modules/nf-core/bedtools/bamtobed/main'
@@ -67,8 +67,9 @@ include { ASSEMBLYREADSTATS           } from '../modules/local/scripts/assembly_
 include { MERGEMAPPINGLOGS            } from '../modules/local/scripts/merge_mapping_logs/main'
 include { MERGEALLLOGS                } from '../modules/local/scripts/merge_all_logs/main'
 include { SUMMARIZEMAPPINGSTATS       } from '../modules/local/scripts/summarizemapping/main'
-include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG ; MERGEDATAFRAMES as MERGEDATAFRAMESBED } from '../modules/local/scripts/merge_dataframes/main'
+include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG } from '../modules/local/scripts/merge_dataframes/main'
 include { GENERATEBLOCKS              } from '../modules/local/scripts/generate_blocks/main'
+include { STACKDATAFRAMES             } from '../modules/local/scripts/stack_dataframes/main'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -181,11 +182,11 @@ workflow ASSEMBLEREVAL {
         [["id": "all_reference_bed"], it]
     }. set { all_reference_bed }
 
-    MERGEDATAFRAMESBED(
+    STACKDATAFRAMES(
         all_reference_bed
     )
 
-    MERGEDATAFRAMESBED.out.merged_dfs.combine(
+    STACKDATAFRAMES.out.stacked_dfs.combine(
         reference_cds
     ). set { reference_cds_bed }
 
@@ -208,7 +209,7 @@ workflow ASSEMBLEREVAL {
         contigs_blocks.blocks
     )
 
-    MINIMAP2_DEDUP (
+    MINIMAP2_FILTER (
         MINIMAP2_MAP.out.mapping
     )
 

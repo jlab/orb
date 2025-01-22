@@ -1,4 +1,4 @@
-process MINIMAP2_DEDUP {
+process MINIMAP2_FILTER {
     tag "$meta.id"
     label "process_low"
 
@@ -18,6 +18,6 @@ process MINIMAP2_DEDUP {
     def args = task.ext.args ?: ''
 
     """
-    python /container/bin/minimap2_deduplicate.py ${mapping} 
+    python /container/bin/minimap2_filter.py ${mapping} 
     """
 }
