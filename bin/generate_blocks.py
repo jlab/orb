@@ -4,10 +4,25 @@ import sys
 
 bed_file = sys.argv[1]
 ref_transcriptome = sys.argv[2]
+dup_ids_group = sys.argv[3]
+
+dict_val = {}
+for line in open(dup_ids_group):
+    line = line.strip()
+    ids = line.split("\t")[1]
+    ids_list = ids.split(", ")
+    dict_val[ids_list[0]] = ids_list
 
 bed_df = pandas.read_csv(bed_file, sep="\t", header=None)
-bed_df = bed_df[bed_df[0] == bed_df[3].str.split("_", expand=True)[0] + "_" + bed_df[3].str.split("_", expand=True)[1]]
 
+#the read name contains the read numbered, so I need to truncate to see if it is the orginal cds
+bed_df['truncated_red_name'] = bed_df[3].str.split('_', expand=True)[[0,1]].agg('_'.join, axis=1)
+#we deduplicated the sequences, but we need to include the reads of sequences that were deduplicated, so map to all the original reads
+bed_df["mapped_group"] = bed_df['truncated_red_name'].map(lambda x: dict_val.get(x, [x]))
+bed_df = bed_df.explode("mapped_group")
+#filter reads that are not the original cds, i.e. incorrectly mapped
+bed_df = bed_df[bed_df[0]==bed_df["mapped_group"]]
+       
 blocks = []
 
 for group_name, group in bed_df.groupby(0):

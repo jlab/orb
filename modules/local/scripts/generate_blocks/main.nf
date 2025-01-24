@@ -7,6 +7,7 @@ process GENERATEBLOCKS {
 
     input:
     tuple val(meta), path(merged_beds), path(reference)
+    tuple val(meta2), path(dup_seqs)
 
     output:
     tuple val(meta), path("${prefix}.fa")       , emit: blocks
@@ -20,6 +21,6 @@ process GENERATEBLOCKS {
 
     """
     pip install biopython==1.83
-    python /container/bin/generate_blocks.py ${merged_beds} ${reference} > ${prefix}.fa
+    python /container/bin/generate_blocks.py ${merged_beds} ${reference} ${dup_seqs} > ${prefix}.fa
     """
 }

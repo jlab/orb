@@ -70,6 +70,7 @@ include { SUMMARIZEMAPPINGSTATS       } from '../modules/local/scripts/summarize
 include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG } from '../modules/local/scripts/merge_dataframes/main'
 include { GENERATEBLOCKS              } from '../modules/local/scripts/generate_blocks/main'
 include { STACKDATAFRAMES             } from '../modules/local/scripts/stack_dataframes/main'
+include { SEQKIT_RMDUP                } from '../modules/nf-core/seqkit/rmdup/main'                                                                                                             
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -146,9 +147,13 @@ workflow ASSEMBLEREVAL {
         assembler ->
         [["id": "reference"], assembler]
     }.set{ reference_cds_val }
+
+    SEQKIT_RMDUP(
+        reference_cds_val
+    )
     
     BOWTIE2_BUILD_REFERENCE(
-        reference_cds_val
+        SEQKIT_RMDUP.out.fastx
     )
 
     reads
@@ -191,7 +196,8 @@ workflow ASSEMBLEREVAL {
     ). set { reference_cds_bed }
 
     GENERATEBLOCKS(
-        reference_cds_bed
+        reference_cds_bed,
+        SEQKIT_RMDUP.out.dup_seqs
     )
 
     sample_assemblers.map {
