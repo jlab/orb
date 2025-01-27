@@ -50,7 +50,17 @@
                         "git_sha": "ce801ced94947b2ff01002b4120eef2f79489b34",
                         "installed_by": ["modules"]
                     },
+                    "seqkit/grep": {
+                        "branch": "master",
+                        "git_sha": "60645c2b45e56579de0a0c89416805cae44c1f46",
+                        "installed_by": ["modules"]
+                    },
                     "seqkit/rmdup": {
+                        "branch": "master",
+                        "git_sha": "60645c2b45e56579de0a0c89416805cae44c1f46",
+                        "installed_by": ["modules"]
+                    },
+                    "seqkit/seq": {
                         "branch": "master",
                         "git_sha": "60645c2b45e56579de0a0c89416805cae44c1f46",
                         "installed_by": ["modules"]

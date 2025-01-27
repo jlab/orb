@@ -57,8 +57,8 @@ include { QUAST as QUAST_ASSEMBLER    } from '../modules/nf-core/quast/main'
 include { QUAST as QUAST              } from '../modules/nf-core/quast/main'
 include { SALMON_INDEX                } from '../modules/local/salmon/index/main'
 include { SALMON_QUANT                } from '../modules/local/salmon/quant/main'
-include { MINIMAP2_MAP                } from '../modules/local/minimap2/map/main'
-include { MINIMAP2_FILTER              } from '../modules/local/scripts/minimap2dedup/main'
+include { MINIMAP2_MAP; MINIMAP2_MAP as MINIMAP2_MAP_CHIMERIC } from '../modules/local/minimap2/map/main'
+include { MINIMAP2FILTER; MINIMAP2FILTER as MINIMAP2_FILTER_CHIMERIC} from '../modules/local/scripts/minimap2dedup/main'
 include { BOWTIE2_BUILD; BOWTIE2_BUILD as BOWTIE2_BUILD_REFERENCE} from '../modules/nf-core/bowtie2/build/main'
 include { BOWTIE2_ALIGN               } from '../modules/nf-core/bowtie2/align/main'
 include { BEDTOOLS_BAMTOBED           } from '../modules/nf-core/bedtools/bamtobed/main'
@@ -72,6 +72,10 @@ include { GENERATEBLOCKS              } from '../modules/local/scripts/generate_
 include { STACKDATAFRAMES             } from '../modules/local/scripts/stack_dataframes/main'
 include { SEQKIT_RMDUP                } from '../modules/nf-core/seqkit/rmdup/main'
 include { IDENTIFYCHIMERICBLOCKS      } from '../modules/local/scripts/identify_chimeric_blocks/main'
+include { EXTRACTMAPPEDIDS            } from '../modules/local/scripts/extract_mapped_ids/main'
+include { SEQKIT_SEQ                  } from '../modules/nf-core/seqkit/seq/main'
+include { SEQKIT_GREP                 } from '../modules/nf-core/seqkit/grep/main'
+
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -216,7 +220,7 @@ workflow ASSEMBLEREVAL {
         contigs_blocks.blocks
     )
 
-    MINIMAP2_FILTER (
+    MINIMAP2FILTER (
         MINIMAP2_MAP.out.mapping
     )
 
@@ -226,9 +230,58 @@ workflow ASSEMBLEREVAL {
         Channel.of(params.base_gtf_dir),
         Channel.fromPath(params.translation_df),
         Channel.fromPath(params.gene_summary)
-    ) 
+    )
 
-//    contigs_blocks.blocks.view()
+    sample_assemblers.map {
+        assembler ->
+        [["id":assembler.baseName.replace('_contigs', '_chimeric')], assembler]
+    }
+    .combine(IDENTIFYCHIMERICBLOCKS.out.chim_blocks)
+    .multiMap { it ->
+        contigs: tuple(it[0], it[1])
+        chimeric_blocks: tuple(it[2], it[3])
+    }.set{ contigs_chimeric_blocks }
+
+    
+    MINIMAP2_MAP_CHIMERIC(
+        contigs_chimeric_blocks.contigs,
+        contigs_chimeric_blocks.chimeric_blocks
+    )
+
+    MINIMAP2_FILTER_CHIMERIC (
+        MINIMAP2_MAP_CHIMERIC.out.mapping
+    )
+
+    MINIMAP2_FILTER_CHIMERIC.out.map {
+        [["id":it[0]["id"].replace('_chimeric', '')], it[1]]
+    }.set{ chimeric_mapping }
+
+    MINIMAP2FILTER.out.map.join(
+        chimeric_mapping
+    ).set { all_mapping }
+
+    EXTRACTMAPPEDIDS(
+        all_mapping
+    )
+
+    sample_assemblers.map {
+        assembler ->
+        [["id":assembler.baseName.replace('_contigs', '')], assembler]
+    }.join(
+        EXTRACTMAPPEDIDS.out.mapped_ids
+    ).multiMap { it ->
+        contigs: tuple(it[0], it[1])
+        mapped_ids: tuple(it[2])
+    }.set{ contigs_mapped_ids }
+    
+    SEQKIT_GREP(
+        contigs_mapped_ids.contigs,
+        contigs_mapped_ids.mapped_ids
+    )
+
+    SEQKIT_SEQ(
+        SEQKIT_GREP.out.filter
+    )
 
     /*
 

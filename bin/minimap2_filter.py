@@ -12,6 +12,7 @@ import json
 
 file_path = sys.argv[1]
 minimap_file_basename = os.path.basename(file_path)
+minimap_file_basename = os.path.splitext(minimap_file_basename)[0]
 
 if os.path.exists(file_path) and os.path.getsize(file_path) == 0:
     with open(f"{minimap_file_basename}_dedup.json", 'w') as json_file:

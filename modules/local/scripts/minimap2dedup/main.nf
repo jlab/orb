@@ -1,4 +1,4 @@
-process MINIMAP2_FILTER {
+process MINIMAP2FILTER {
     tag "$meta.id"
     label "process_low"
 
