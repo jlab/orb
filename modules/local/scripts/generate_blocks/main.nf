@@ -11,6 +11,7 @@ process GENERATEBLOCKS {
 
     output:
     tuple val(meta), path("${prefix}.fa")       , emit: blocks
+    tuple val(meta), path("${prefix}_blocks.tsv")   , emit: blocks_tsv
 
     when:
     task.ext.when == null || task.ext.when
@@ -21,6 +22,6 @@ process GENERATEBLOCKS {
 
     """
     pip install biopython==1.83
-    python /container/bin/generate_blocks.py ${merged_beds} ${reference} ${dup_seqs} > ${prefix}.fa
+    python /container/bin/generate_blocks.py ${merged_beds} ${reference} ${dup_seqs} ${prefix} > ${prefix}.fa
     """
 }

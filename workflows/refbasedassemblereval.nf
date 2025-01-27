@@ -70,7 +70,8 @@ include { SUMMARIZEMAPPINGSTATS       } from '../modules/local/scripts/summarize
 include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG } from '../modules/local/scripts/merge_dataframes/main'
 include { GENERATEBLOCKS              } from '../modules/local/scripts/generate_blocks/main'
 include { STACKDATAFRAMES             } from '../modules/local/scripts/stack_dataframes/main'
-include { SEQKIT_RMDUP                } from '../modules/nf-core/seqkit/rmdup/main'                                                                                                             
+include { SEQKIT_RMDUP                } from '../modules/nf-core/seqkit/rmdup/main'
+include { IDENTIFYCHIMERICBLOCKS      } from '../modules/local/scripts/identify_chimeric_blocks/main'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     RUN MAIN WORKFLOW
@@ -218,6 +219,14 @@ workflow ASSEMBLEREVAL {
     MINIMAP2_FILTER (
         MINIMAP2_MAP.out.mapping
     )
+
+    IDENTIFYCHIMERICBLOCKS(
+        GENERATEBLOCKS.out.blocks_tsv,
+        SEQKIT_RMDUP.out.dup_seqs,
+        Channel.of(params.base_gtf_dir),
+        Channel.fromPath(params.translation_df),
+        Channel.fromPath(params.gene_summary)
+    ) 
 
 //    contigs_blocks.blocks.view()
 

@@ -1,10 +1,11 @@
-import pandas
+import pandas as pd
 from Bio import SeqIO
 import sys
 
 bed_file = sys.argv[1]
 ref_transcriptome = sys.argv[2]
 dup_ids_group = sys.argv[3]
+prefix = sys.argv[4]
 
 dict_val = {}
 for line in open(dup_ids_group):
@@ -13,7 +14,7 @@ for line in open(dup_ids_group):
     ids_list = ids.split(", ")
     dict_val[ids_list[0]] = ids_list
 
-bed_df = pandas.read_csv(bed_file, sep="\t", header=None)
+bed_df = pd.read_csv(bed_file, sep="\t", header=None)
 
 #the read name contains the read numbered, so I need to truncate to see if it is the orginal cds
 bed_df['truncated_red_name'] = bed_df[3].str.split('_', expand=True)[[0,1]].agg('_'.join, axis=1)
@@ -26,6 +27,7 @@ bed_df = bed_df[bed_df[0]==bed_df["mapped_group"]]
 blocks = []
 
 for group_name, group in bed_df.groupby(0):
+    #sort by start position
     sorted_group = group.sort_values(1)
     new_cds = True
     block_index = 0
@@ -42,9 +44,11 @@ for group_name, group in bed_df.groupby(0):
                 current_start = row[1]
                 current_end = row[2]
                 block_index += 1
+    #add the last block
     blocks.append((group_name, block_index, current_start, current_end))
 
-blocks_df = pandas.DataFrame(blocks, columns=["cds", "block_index", "start", "end"])
+blocks_df = pd.DataFrame(blocks, columns=["cds", "block_index", "start", "end"])
+blocks_df.to_csv(f"{prefix}_blocks.tsv", sep="\t", index=False)
 
 cds_to_block_dict = blocks_df.groupby("cds").apply(lambda group: group[["block_index", "start", "end"]].values.tolist(), include_groups=False).to_dict()
 

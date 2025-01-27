@@ -10,6 +10,7 @@ archive/
 null/
 test/
 datset2_test/
+tmp/
 
 bin/*pdf
 *-checkpoint.ipynb
