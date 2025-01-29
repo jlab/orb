@@ -58,10 +58,10 @@ include { QUAST as QUAST              } from '../modules/nf-core/quast/main'
 include { SALMON_INDEX                } from '../modules/local/salmon/index/main'
 include { SALMON_QUANT                } from '../modules/local/salmon/quant/main'
 include { MINIMAP2_MAP; MINIMAP2_MAP as MINIMAP2_MAP_CHIMERIC } from '../modules/local/minimap2/map/main'
-include { MINIMAP2FILTER; MINIMAP2FILTER as MINIMAP2_FILTER_CHIMERIC} from '../modules/local/scripts/minimap2dedup/main'
-include { BOWTIE2_BUILD; BOWTIE2_BUILD as BOWTIE2_BUILD_REFERENCE} from '../modules/nf-core/bowtie2/build/main'
-include { BOWTIE2_ALIGN               } from '../modules/nf-core/bowtie2/align/main'
-include { BEDTOOLS_BAMTOBED           } from '../modules/nf-core/bedtools/bamtobed/main'
+include { MINIMAP2FILTER; MINIMAP2FILTER as MINIMAP2_FILTER_CHIMERIC } from '../modules/local/scripts/minimap2dedup/main'
+include { BOWTIE2_BUILD; BOWTIE2_BUILD as BOWTIE2_BUILD_REFERENCE } from '../modules/nf-core/bowtie2/build/main'
+include { BOWTIE2_ALIGN; BOWTIE2_ALIGN as BOWTIE2_ALIGN_REFERENCE } from '../modules/nf-core/bowtie2/align/main'
+include { BEDTOOLS_BAMTOBED; BEDTOOLS_BAMTOBED as BEDTOOLS_BAMTOBED_REFERENCE } from '../modules/nf-core/bedtools/bamtobed/main'
 include { SCRIPT_MAPPING_STATS        } from '../modules/local/scripts/mapping_stats/main'
 include { ASSEMBLYREADSTATS           } from '../modules/local/scripts/assembly_read_stats/main'
 include { MERGEMAPPINGLOGS            } from '../modules/local/scripts/merge_mapping_logs/main'
@@ -69,12 +69,15 @@ include { MERGEALLLOGS                } from '../modules/local/scripts/merge_all
 include { SUMMARIZEMAPPINGSTATS       } from '../modules/local/scripts/summarizemapping/main'
 include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG } from '../modules/local/scripts/merge_dataframes/main'
 include { GENERATEBLOCKS              } from '../modules/local/scripts/generate_blocks/main'
-include { STACKDATAFRAMES             } from '../modules/local/scripts/stack_dataframes/main'
+include { STACKDATAFRAMES; STACKDATAFRAMES as STACKDATAFRAMES_REFERENCE } from '../modules/local/scripts/stack_dataframes/main'
 include { SEQKIT_RMDUP                } from '../modules/nf-core/seqkit/rmdup/main'
 include { IDENTIFYCHIMERICBLOCKS      } from '../modules/local/scripts/identify_chimeric_blocks/main'
 include { EXTRACTMAPPEDIDS            } from '../modules/local/scripts/extract_mapped_ids/main'
 include { SEQKIT_SEQ                  } from '../modules/nf-core/seqkit/seq/main'
 include { SEQKIT_GREP                 } from '../modules/nf-core/seqkit/grep/main'
+include { GATHERRESULTS               } from '../modules/local/scripts/gather_results/main'
+include { EXTRACTMAPPEDVALUES; EXTRACTMAPPEDVALUES as EXTRACTMAPPEDVALUES_CHIMERIC } from '../modules/local/jq/extract_values/main'
+include { EXTRACTIDS                  } from '../modules/local/scripts/extract_ids/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -174,29 +177,29 @@ workflow ASSEMBLEREVAL {
         sort_bam: it[5]
     }.set {reads_ref_ch}
 
-    BOWTIE2_ALIGN(
+    BOWTIE2_ALIGN_REFERENCE(
         reads_ref_ch.reads,
         reads_ref_ch.index,
         reads_ref_ch.save_unaligned,
         reads_ref_ch.sort_bam
     )
 
-    BEDTOOLS_BAMTOBED(
-        BOWTIE2_ALIGN.out.aligned
+    BEDTOOLS_BAMTOBED_REFERENCE(
+        BOWTIE2_ALIGN_REFERENCE.out.aligned
     )
 
-    BEDTOOLS_BAMTOBED.out.bed.map {
+    BEDTOOLS_BAMTOBED_REFERENCE.out.bed.map {
         [it[1]]
     }.collect()
     .map {
         [["id": "all_reference_bed"], it]
     }. set { all_reference_bed }
 
-    STACKDATAFRAMES(
+    STACKDATAFRAMES_REFERENCE(
         all_reference_bed
     )
 
-    STACKDATAFRAMES.out.stacked_dfs.combine(
+    STACKDATAFRAMES_REFERENCE.out.stacked_dfs.combine(
         reference_cds
     ). set { reference_cds_bed }
 
@@ -281,6 +284,101 @@ workflow ASSEMBLEREVAL {
 
     SEQKIT_SEQ(
         SEQKIT_GREP.out.filter
+    )
+
+    BOWTIE2_BUILD(
+        SEQKIT_SEQ.out.fastx
+    )
+
+    reads
+    .combine(
+        BOWTIE2_BUILD.out.index
+    )
+    .combine(Channel.of(true))
+    .combine(Channel.of(false))
+    .multiMap { it ->
+        reads: tuple(
+             [
+                "id"           : it[0]["id"] + "_" + it[2]["id"],
+                "single_end"   : it[0]["single_end"],
+                "read_id"      : it[0]["id"],
+                "assembler_id" : it[2]["id"]
+            ],
+            it[1]
+        )
+        index: tuple(it[2], it[3])
+        save_unaligned: it[4]
+        sort_bam: it[5]
+    }.set { reads_index_ch }
+
+    BOWTIE2_ALIGN(
+        reads_index_ch.reads,
+        reads_index_ch.index,
+        reads_index_ch.save_unaligned,
+        reads_index_ch.sort_bam
+    )
+
+    BEDTOOLS_BAMTOBED(
+        BOWTIE2_ALIGN.out.aligned
+    )
+
+    BEDTOOLS_BAMTOBED.out.bed
+    .map {
+        meta = ["id": it[0]["assembler_id"]]
+        [meta, it[1]]
+    }
+    .groupTuple()
+    .set{ contigs_bed }
+
+    STACKDATAFRAMES(
+        contigs_bed
+    )
+
+    EXTRACTMAPPEDVALUES(
+        MINIMAP2FILTER.out.map
+    )
+
+    EXTRACTMAPPEDVALUES_CHIMERIC (
+        MINIMAP2_FILTER_CHIMERIC.out.map
+    )
+
+    id_sample_assemblers.join(
+        SEQKIT_GREP.out.filter
+    ).join(
+        SEQKIT_SEQ.out.fastx
+    ). set { contigs_filtered }
+
+    EXTRACTIDS(
+        contigs_filtered
+    )
+
+    EXTRACTIDS.out.contig_ids.join(
+        EXTRACTMAPPEDVALUES.out.values
+    ).join(
+        EXTRACTMAPPEDVALUES_CHIMERIC.out.values.map {
+            [["id":it[0]["id"].replace('_chimeric', '')], it[1]]
+        }
+    ).join(
+        STACKDATAFRAMES.out.stacked_dfs
+    ).combine(
+        SEQKIT_RMDUP.out.dup_seqs.map {
+            it[1]
+        }
+    ).set { combined_results }
+
+    GATHERRESULTS(
+        combined_results
+    )
+
+    GATHERRESULTS.out.scores.map {
+        [it[1]]
+    }.collect()
+    .map {
+        [["id": "all_scores"], it]
+    }.set { all_scores }
+
+    MERGEDATAFRAMESMAPPING(
+        all_scores
     )
 
     /*
