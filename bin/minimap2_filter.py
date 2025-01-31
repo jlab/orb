@@ -18,7 +18,7 @@ if os.path.exists(file_path) and os.path.getsize(file_path) == 0:
     with open(f"{minimap_file_basename}_dedup.json", 'w') as json_file:
         json.dump({}, json_file)
 
-minimap_results = pd.read_csv(file_path, sep="\t", header=None)
+minimap_results = pd.read_csv(file_path, sep="\t", header=None, usecols=[0, 5, 6, 9, 10])
 
 indices = pd.Index([])
 

@@ -2,6 +2,7 @@ import pandas as pd
 from Bio import SeqIO
 import sys
 import glob
+import re
 
 
 base_gtf_dir = sys.argv[1]
@@ -34,8 +35,15 @@ gene_to_genomic_location = {}
 
 # i want to map the gene names to the genomic locations in order to infer chimeric blocks (i.e. blocks overlapping in the original genome)
 for group_name, group in pd_gene.groupby("accession"):
+    accession = re.sub(r"\.\d+$", "", group_name)
+    ref_mapping = glob.glob(f"{base_gtf_dir}/{accession}.*/genomic.gtf")
+    if len(ref_mapping) == 1:
+        ref_mapping = ref_mapping[0]
+    else:
+        raise ValueError(f"Multiple or no genome files found for {accession}")
+
     pd_group_gtf = pd.read_csv(
-        f"{base_gtf_dir}/{group_name}/genomic.gtf",
+        ref_mapping,
         sep="\t",
         header=None,
         skiprows=5,
@@ -51,7 +59,7 @@ for group_name, group in pd_gene.groupby("accession"):
         .apply(lambda x: list(zip(x["chromosome"], x["start"], x["end"])))
         .to_dict()
     )
-    pd_gene.loc[group.index, "genomic_locations"] = group["gene_name"].map(gene_to_genomic_location).apply(lambda x: [[group_name] + list(i) for i in x])
+    pd_gene.loc[group.index, "genomic_locations"] = group["gene_name"].map(gene_to_genomic_location).apply(lambda x: [[group_name] + list(i) for i in x] if isinstance(x, list) else pd.NA)
 
 gene_location_dict = pd_gene.set_index("gene_name").to_dict()["genomic_locations"]
 
@@ -118,7 +126,8 @@ chim_blocks_df.reset_index(drop=True, inplace=True)
 chim_blocks_records = []
 
 for accession, blocks in chim_blocks_df.groupby("accession"):
-    ref_transcriptome = glob.glob(f"{base_gtf_dir}/{accession}/{accession}_*_genomic.fna")
+    accession = re.sub(r"\.\d+$", "", accession)
+    ref_transcriptome = glob.glob(f"{base_gtf_dir}/{accession}.*/{accession}.*_*_genomic.fna")
     if len(ref_transcriptome) != 1:
         print(ref_transcriptome)
         raise ValueError(f"Multiple or no genome files found for {accession}")
