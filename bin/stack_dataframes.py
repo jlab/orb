@@ -6,12 +6,12 @@ def merge_dfs(df_files):
     first = True
     for df_file in df_files:
         if first:
-            dfs = pd.read_csv(df_file, sep="\t", index_col=False, header=True)
+            dfs = pd.read_csv(df_file, sep="\t", index_col=False)
             first = False
         else:
-            df = pd.read_csv(df_file, sep="\t", index_col=False, header=True)
+            df = pd.read_csv(df_file, sep="\t", index_col=False)
             dfs = pd.concat([dfs, df])
-    dfs.to_csv(sys.stdout, sep="\t", index=False, header=True)
+    dfs.to_csv(sys.stdout, sep="\t", index=False)
 
 
 len_args = len(sys.argv)
