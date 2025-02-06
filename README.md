@@ -15,20 +15,28 @@
 
 Naming suggestions:
 
+BEAMED
+
+Benchmarking for assembled metatranscriptomic  data
+
+(RED) BEAM:
+
+referenced-based data  benchmarking for assembled metatranscriptomic
+
 Bead
-Benchmarking for assembly data
+Benchmarking for assembled data
 
-Orb
-omics reference-based benchmarking
+mtx-Bead
 
-<!-- TODO nf-core:
-   Complete this sentence with a 2-3 sentence summary of what types of data the pipeline ingests, a brief overview of the
-   major pipeline sections and the types of output it produces. You're giving an overview to someone new
-   to nf-core here, in 15-20 seconds. For an example, see https://github.com/nf-core/rnaseq/blob/master/README.md#introduction
--->
+metatranscriptomics benchmarking for assembled data
 
-<!-- TODO nf-core: Include a figure that guides the user through the major workflow steps. Many nf-core
-     workflows use the "tube map" design for that. See https://nf-co.re/docs/contributing/design_guidelines#examples for examples.   -->
+(Meta-) Orb
+(Metatranscrip) Omics reference based benchmarking
+
+mt-orb
+
+mtxorb
+
 
 <!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->
 

@@ -78,6 +78,7 @@ include { SEQKIT_GREP                 } from '../modules/nf-core/seqkit/grep/mai
 include { GATHERRESULTS               } from '../modules/local/scripts/gather_results/main'
 include { EXTRACTMAPPEDVALUES; EXTRACTMAPPEDVALUES as EXTRACTMAPPEDVALUES_CHIMERIC } from '../modules/local/jq/extract_values/main'
 include { EXTRACTIDS                  } from '../modules/local/scripts/extract_ids/main'
+include { CALCULATEFINALSCORES        } from '../modules/local/scripts/calculate_final_scores/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -104,6 +105,8 @@ workflow ASSEMBLEREVAL {
     // TODO: OPTIONAL, you can use nf-validation plugin to create an input channel from the samplesheet with Channel.fromSamplesheet("input")
     // See the documentation https://nextflow-io.github.io/nf-validation/samplesheets/fromSamplesheet/
     // ! There is currently no tooling to help you write a sample sheet schema
+
+    def prefix = params.run_prefix ?: "prefix"
 
     sample_assemblers = Channel.fromPath(params.contigs)
     reads = INPUT_CHECK_READS.out.reads
@@ -153,7 +156,7 @@ workflow ASSEMBLEREVAL {
     
     reference_cds.map {
         assembler ->
-        [["id": "reference"], assembler]
+        [["id": prefix + "_reference"], assembler]
     }.set{ reference_cds_val }
 
     SEQKIT_RMDUP(
@@ -192,7 +195,7 @@ workflow ASSEMBLEREVAL {
         [it[1]]
     }.collect()
     .map {
-        [["id": "all_reference_bed"], it]
+        [["id": prefix + "_reference" ], it]
     }. set { all_reference_bed }
 
     STACKDATAFRAMES_REFERENCE(
@@ -210,7 +213,7 @@ workflow ASSEMBLEREVAL {
 
     sample_assemblers.map {
         assembler ->
-        [["id":assembler.baseName.replace('_contigs', '')], assembler]
+        [["id": assembler.baseName.replace('_contigs', '')], assembler]
     }
     .combine(GENERATEBLOCKS.out.blocks)
     .multiMap { it ->
@@ -364,6 +367,8 @@ workflow ASSEMBLEREVAL {
         SEQKIT_RMDUP.out.dup_seqs.map {
             it[1]
         }
+    ).combine(
+        Channel.fromPath(params.gene_summary)
     ).set { combined_results }
 
     GATHERRESULTS(
@@ -374,13 +379,40 @@ workflow ASSEMBLEREVAL {
         [it[1]]
     }.collect()
     .map {
-        [["id": "all_scores"], it]
+        [["id": prefix + "_all_scores"], it]
     }.set { all_scores }
 
     MERGEDATAFRAMESMAPPING(
         all_scores
     )
 
+    MERGEDATAFRAMESMAPPING.out.merged_dfs.combine(
+        GENERATEBLOCKS.out.blocks_tsv.map {
+            it[1]
+        }
+    )
+    .combine(
+        IDENTIFYCHIMERICBLOCKS.out.chim_blocks_tsv.map {
+            it[1]
+        }
+    ).set { all_scores_with_block }
+
+    CALCULATEFINALSCORES(
+        all_scores_with_block
+    )
+    
+    GENERATEBLOCKS.out.blocks_tsv.map {
+        [["id": prefix + "_blocks"], it]
+    }.set { blocks }
+
+    /*
+    CALCULATEREFERENCEINFO(
+        reference_cds_val,
+        GENERATEBLOCKS.out.blocks_tsv,
+        IDENTIFYCHIMERICBLOCKS.out.chim_blocks_tsv
+    )
+    */
+    
     /*
 
     BOWTIE2_BUILD(

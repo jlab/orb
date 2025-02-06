@@ -61,6 +61,16 @@ for group_name, group in pd_gene.groupby("accession"):
     )
     pd_gene.loc[group.index, "genomic_locations"] = group["gene_name"].map(gene_to_genomic_location).apply(lambda x: [[group_name] + list(i) for i in x] if isinstance(x, list) else pd.NA)
 
+
+# TODO: maybe remove the value error for publishing, others might have not a perfect datasource
+if pd_gene["genomic_locations"].isna().sum() > 0:
+    print(f"Warning: {pd_gene['genomic_locations'].isna().sum()} genes have no genomic location")
+    print("The dataframe:")
+    print(pd_gene[pd_gene["genomic_locations"].isna()])
+    # raise ValueError("Some blocks have no genomic location, have a look at the dataframe")
+
+pd_gene = pd_gene[~pd_gene["genomic_locations"].isna()]
+
 gene_location_dict = pd_gene.set_index("gene_name").to_dict()["genomic_locations"]
 
 # we need to merge the genomic coordinates of genes in deduplicated groups
@@ -71,19 +81,17 @@ for k, v in group_dict.items():
             continue
         gene_location_dict[k] += gene_location_dict.pop(id)
 
-
 pd_blocks["genomic_location"] = pd_blocks["cds"].map(gene_location_dict)
 
-pd_blocks_exploded = pd_blocks.explode("genomic_location")
-
-# TODO: maybe remove the value error for publishing, others might have not a perfect datasource
-if pd_blocks_exploded["genomic_location"].isna().sum() > 0:
-    print(f"Warning: {pd_blocks_exploded['genomic_location'].isna().sum()} blocks have no genomic location")
+if pd_blocks["genomic_location"].isna().sum() > 0:
+    print(f"Warning: {pd_blocks["genomic_location"].isna().sum()} blocks have no genomic location")
     print("The dataframe:")
-    print(pd_blocks_exploded[pd_blocks_exploded["genomic_location"].isna()])
+    print(pd_blocks[pd_blocks["genomic_location"].isna()])
     # raise ValueError("Some blocks have no genomic location, have a look at the dataframe")
 
-pd_blocks_exploded = pd_blocks_exploded[~pd_blocks_exploded["genomic_location"].isna()]
+pd_blocks = pd_blocks[~pd_blocks["genomic_location"].isna()]
+
+pd_blocks_exploded = pd_blocks.explode("genomic_location")
 
 pd_blocks_exploded['accession'], pd_blocks_exploded['chromosome'], pd_blocks_exploded['cds_genomic_start'], pd_blocks_exploded['cds_genomic_end'] = zip(*pd_blocks_exploded['genomic_location'])
 pd_blocks_exploded.drop(columns=["genomic_location"], inplace=True)
