@@ -8,13 +8,13 @@ process CALCULATEREFERENCEINFO {
     input:
     tuple val(meta), path(ref_fasta)
     tuple val(meta2), path(blocks_df)
-    tuple val(meta3) path(chim_blocks_df)
+    tuple val(meta3), path(chim_blocks_df)
 
     output:
-    tuple val(meta), path("${prefix}_reference_stats.tsv")                             , emit: ref_stats
-    tuple val(["id": "CDS"]), path("${prefix}_cds_lengths.tsv")                        , emit: cds_lenghts
-    tuple val(["id": "Blocks"]), path("${prefix}_block_lengths.tsv")                   , emit: block_lengths
-    tuple val(["id": "Chimeric Blocks"]), path("${prefix}_chimeric_block_lengths.tsv") , emit: chimeric_block_lengths
+    path("${prefix}_reference_stats.tsv")   , emit: ref_stats
+    path("${prefix}_cds_lengths.tsv")                        , emit: cds_lenghts
+    path("${prefix}_block_lengths.tsv")                      , emit: block_lengths
+    path("${prefix}_chimeric_block_lengths.tsv")             , emit: chimeric_block_lengths
 
     when:
     task.ext.when == null || task.ext.when
@@ -24,6 +24,8 @@ process CALCULATEREFERENCEINFO {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
+    pip install Biopython
+    echo "" > deletethisline.txt
     python /container/bin/calculate_reference_info.py  ${blocks_df} ${chim_blocks_df} ${ref_fasta} ${prefix}
     """
 }

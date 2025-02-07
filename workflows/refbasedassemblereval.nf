@@ -67,7 +67,8 @@ include { ASSEMBLYREADSTATS           } from '../modules/local/scripts/assembly_
 include { MERGEMAPPINGLOGS            } from '../modules/local/scripts/merge_mapping_logs/main'
 include { MERGEALLLOGS                } from '../modules/local/scripts/merge_all_logs/main'
 include { SUMMARIZEMAPPINGSTATS       } from '../modules/local/scripts/summarizemapping/main'
-include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG } from '../modules/local/scripts/merge_dataframes/main'
+include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG;
+MERGEDATAFRAMES as MERGEDATAFRAMESSUMMARIES } from '../modules/local/scripts/merge_dataframes/main'
 include { GENERATEBLOCKS              } from '../modules/local/scripts/generate_blocks/main'
 include { STACKDATAFRAMES; STACKDATAFRAMES as STACKDATAFRAMES_REFERENCE } from '../modules/local/scripts/stack_dataframes/main'
 include { SEQKIT_RMDUP                } from '../modules/nf-core/seqkit/rmdup/main'
@@ -79,6 +80,8 @@ include { GATHERRESULTS               } from '../modules/local/scripts/gather_re
 include { EXTRACTMAPPEDVALUES; EXTRACTMAPPEDVALUES as EXTRACTMAPPEDVALUES_CHIMERIC } from '../modules/local/jq/extract_values/main'
 include { EXTRACTIDS                  } from '../modules/local/scripts/extract_ids/main'
 include { CALCULATEFINALSCORES        } from '../modules/local/scripts/calculate_final_scores/main'
+include { CALCULATEREFERENCEINFO      } from '../modules/local/scripts/calculate_reference_info/main'
+include { MAKEHISTOGRAMS              } from '../modules/local/scripts/make_histograms/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -159,6 +162,11 @@ workflow ASSEMBLEREVAL {
         [["id": prefix + "_reference"], assembler]
     }.set{ reference_cds_val }
 
+    sample_assemblers.map {
+        assembler ->
+        [["id": assembler.baseName.replace('_contigs', '')], assembler]
+    }.set{ assembler_contigs }
+
     SEQKIT_RMDUP(
         reference_cds_val
     )
@@ -211,10 +219,7 @@ workflow ASSEMBLEREVAL {
         SEQKIT_RMDUP.out.dup_seqs
     )
 
-    sample_assemblers.map {
-        assembler ->
-        [["id": assembler.baseName.replace('_contigs', '')], assembler]
-    }
+    assembler_contigs
     .combine(GENERATEBLOCKS.out.blocks)
     .multiMap { it ->
         contigs: tuple(it[0], it[1])
@@ -369,6 +374,8 @@ workflow ASSEMBLEREVAL {
         }
     ).combine(
         Channel.fromPath(params.gene_summary)
+    ).join(
+        assembler_contigs
     ).set { combined_results }
 
     GATHERRESULTS(
@@ -401,17 +408,91 @@ workflow ASSEMBLEREVAL {
         all_scores_with_block
     )
     
-    GENERATEBLOCKS.out.blocks_tsv.map {
-        [["id": prefix + "_blocks"], it]
-    }.set { blocks }
-
-    /*
     CALCULATEREFERENCEINFO(
         reference_cds_val,
         GENERATEBLOCKS.out.blocks_tsv,
         IDENTIFYCHIMERICBLOCKS.out.chim_blocks_tsv
     )
-    */
+
+    Channel.of(["id": prefix + "_all_contigs"]).combine(
+        GATHERRESULTS.out.all_contig_lengths_summary.map {
+                it[1]
+        }
+        .collect()
+    )
+    .concat(
+        Channel.of(["id": prefix + "_unmapped_single"]).combine(
+            GATHERRESULTS.out.unmapped_contig_lengths_single_summary.map {
+                it[1]
+            }
+            .collect()
+        )
+    )
+    .concat(
+        Channel.of(["id": prefix + "_unmapped_multi"]).combine(
+            GATHERRESULTS.out.unmapped_contig_lengths_multi_summary.map {
+                it[1]
+            }
+            .collect()
+        )
+    ).concat(
+        Channel.of(["id": prefix + "_mapped_contigs"]).combine(
+            GATHERRESULTS.out.mapped_contig_lengths_summary.map {
+                it[1]
+            }
+            .collect()
+        )
+    ).combine(
+        CALCULATEREFERENCEINFO.out.ref_stats
+    ).map{
+        [it[0], it[1..-1]]
+    }. set { contig_summaries }
+
+    MERGEDATAFRAMESSUMMARIES(
+        contig_summaries
+    )
+
+    Channel.of(["id": prefix + "_all_contigs"]).combine(
+        GATHERRESULTS.out.all_contig_lengths.map {
+                it[1]
+        }
+        .collect()
+    )
+    .concat(
+        Channel.of(["id": prefix + "_unmapped_single"]).combine(
+            GATHERRESULTS.out.unmapped_contig_lengths_single.map {
+                it[1]
+            }
+            .collect()
+        )
+    )
+    .concat(
+        Channel.of(["id": prefix + "_unmapped_multi"]).combine(
+            GATHERRESULTS.out.unmapped_contig_lengths_multi.map {
+                it[1]
+            }
+            .collect()
+        )
+    ).concat(
+        Channel.of(["id": prefix + "_mapped_contigs"]).combine(
+            GATHERRESULTS.out.mapped_contig_lengths.map {
+                it[1]
+            }
+            .collect()
+        )
+    ).combine(
+        CALCULATEREFERENCEINFO.out.cds_lenghts
+    ).combine(
+        CALCULATEREFERENCEINFO.out.block_lengths
+    ).combine(
+        CALCULATEREFERENCEINFO.out.chimeric_block_lengths
+    ).map{
+        [it[0], it[1..-1]]
+    }.set { contig_lengths }
+    
+    MAKEHISTOGRAMS(
+        contig_lengths
+    )
     
     /*
 

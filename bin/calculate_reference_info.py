@@ -24,9 +24,9 @@ for seq in SeqIO.parse(reference_fasta, "fasta"):
 
 total_cds_length = sum(cds_lengths)
 
-blocks["length"].to_csv(f"{prefix}_block_lengths.tsv", sep="\t")
-chimeric_blocks["length"].to_csv(f"{prefix}_chimeric_block_lengths.tsv", sep="\t")
-cds_lengths.to_csv(f"{prefix}_cds_lengths.tsv", sep="\t")
+pd.DataFrame({"Block Lengths": blocks["length"]}).to_csv(f"{prefix}_block_lengths.tsv", sep="\t", index=False)
+pd.DataFrame({"Chimeric Blocks Lengths":chimeric_blocks["length"]}).to_csv(f"{prefix}_chimeric_block_lengths.tsv", sep="\t", index=False)
+pd.DataFrame({"CDS Lengths": cds_lengths}).to_csv(f"{prefix}_cds_lengths.tsv", sep="\t", index=False)
 
 cds_summary = pd.concat([pd.Series(cds_lengths).describe(), pd.Series({"total_length": total_cds_length})])
 blocks_summary = pd.concat([blocks["length"].describe(), pd.Series({"total_length": total_block_length})])

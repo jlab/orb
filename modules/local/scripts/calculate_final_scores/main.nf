@@ -9,7 +9,7 @@ process CALCULATEFINALSCORES {
     tuple val(meta), path(merged_scores), path(blocks_df), path(chim_blocks_df)
 
     output:
-    tuple val(meta), path("${prefix}_orb.tsv")       , emit: final_scores
+    tuple val(meta), path("${prefix}_orb_scores.tsv")       , emit: final_scores
 
     when:
     task.ext.when == null || task.ext.when
