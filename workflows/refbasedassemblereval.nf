@@ -38,6 +38,7 @@ ch_multiqc_custom_methods_description = params.multiqc_methods_description ? fil
 include { INPUT_CHECK_CONTIGS } from '../subworkflows/local/input_check_contig'
 include { INPUT_CHECK_READS   } from '../subworkflows/local/input_check_reads'
 include { DGEEVAL             } from '../subworkflows/local/dgeeval'
+include { REFEVAL             } from '../subworkflows/local/refeval'
 include { LENGTHVISUALIZE_ASSEMBLY_CONTIG as ASSEMLYLENGTHVISUALIZE_ASSEMBLY_CONTIG} from '../modules/local/rvisualise/contiglength'
 include { LENGTHVISUALIZE_ASSEMBLY_CONTIG as SAMPLELENGTHVISUALIZE_ASSEMBLY_CONTIG } from '../modules/local/rvisualise/contiglength'
 
@@ -500,6 +501,14 @@ workflow ASSEMBLEREVAL {
         EXTRACTMAPPEDIDS.out.mapped_ids,
         reads
     )
+
+    REFEVAL(
+        reference_cds_val,
+        reads,
+        BOWTIE2_ALIGN_REFERENCE.out.aligned
+    )
+
+    
 
     /*
 

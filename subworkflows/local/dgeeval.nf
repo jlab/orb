@@ -11,6 +11,7 @@ workflow DGEEVAL {
     contigs
     mapped_ids
     reads
+    reference_summary
 
     main:
     contigs.join(
@@ -80,6 +81,10 @@ workflow DGEEVAL {
 
     DESEQ2(
         SUBREAD_FEATURECOUNTS.out.counts
+    )
+
+    DETERMINE_DGE_SCORES(
+        
     )
     
     emit:
