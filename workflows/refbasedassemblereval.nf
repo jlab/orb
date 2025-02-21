@@ -84,6 +84,8 @@ include { EXTRACTIDS                  } from '../modules/local/scripts/extract_i
 include { CALCULATEFINALSCORES        } from '../modules/local/scripts/calculate_final_scores/main'
 include { CALCULATEREFERENCEINFO      } from '../modules/local/scripts/calculate_reference_info/main'
 include { MAKEHISTOGRAMS              } from '../modules/local/scripts/make_histograms/main'
+include { SORTDATAFRAME                } from '../modules/local/scripts/sort_dataframe/main'
+include { STACKDATAFRAMESWITHHEADER as MERGEDRESULTS } from '../modules/local/scripts/stack_dataframes_with_header/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -117,6 +119,7 @@ workflow ASSEMBLEREVAL {
     reads = INPUT_CHECK_READS.out.reads
     reference_cds = Channel.fromPath(params.reference_cds)
     gene_summary = Channel.fromPath(params.gene_summary)
+    Channel.of(["id": prefix]).combine(gene_summary).set{ gene_summary_prefix }
 
     sample_assemblers.map {
         assembler ->
@@ -416,20 +419,7 @@ workflow ASSEMBLEREVAL {
         IDENTIFYCHIMERICBLOCKS.out.chim_blocks_tsv
     )
 
-    Channel.of(["id": prefix + "_all_contigs"]).combine(
-        GATHERRESULTS.out.all_contig_lengths_summary.map {
-                it[1]
-        }
-        .collect()
-    )
-    .concat(
-        Channel.of(["id": prefix + "_unmapped_single"]).combine(
-            GATHERRESULTS.out.unmapped_contig_lengths_single_summary.map {
-                it[1]
-            }
-            .collect()
-        )
-    )
+    Channel.of(["id": prefix + "_all_contigs"])
     .concat(
         Channel.of(["id": prefix + "_unmapped_multi"]).combine(
             GATHERRESULTS.out.unmapped_contig_lengths_multi_summary.map {
@@ -495,11 +485,18 @@ workflow ASSEMBLEREVAL {
     MAKEHISTOGRAMS(
         contig_lengths
     )
+
+    SORTDATAFRAME(
+        CALCULATEFINALSCORES.out.final_scores,
+        Channel.of(1)
+    )
     
     DGEEVAL(
         assembler_contigs,
         EXTRACTMAPPEDIDS.out.mapped_ids,
-        reads
+        reads,
+        gene_summary_prefix,
+        MINIMAP2FILTER.out.map
     )
 
     REFEVAL(
@@ -508,7 +505,15 @@ workflow ASSEMBLEREVAL {
         BOWTIE2_ALIGN_REFERENCE.out.aligned
     )
 
-    
+    SORTDATAFRAME.out.dataframe.combine(
+        DGEEVAL.out.eval
+    ).map {
+        [it[0], [it[1], it[3]]]
+    }.set { all_scores_dge }
+
+    MERGEDRESULTS(
+        all_scores_dge
+    )
 
     /*
 

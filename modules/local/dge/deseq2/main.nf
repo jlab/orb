@@ -22,8 +22,6 @@ process DESEQ2 {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    echo "" > deletethisline.txt
-    echo "Running edgeR calculation"
     Rscript /container/bin/deseq2_calculation.R ${count_matrix} ${prefix} ${args}
     """
 }

@@ -10,11 +10,13 @@ group1_replicates <- as.numeric(args[4])
 
 group2_name <- args[5]
 group2_replicates <- as.numeric(args[6])
+separator <- args[7]
 
-counts <- read.csv(counts_file, sep = "\t", skip = 1, row.names = 1)
+counts <- read.csv(counts_file, sep = separator, skip = 0, row.names = 1)
+print(head(counts))
 
-group1_cols <- names(counts)[grepl(group1_name, names(counts))]
-group2_cols <- names(counts)[grepl(group2_name, names(counts))]
+group1_cols <- names(counts)[grepl(group1_name, names(counts))][1:group1_replicates]
+group2_cols <- names(counts)[grepl(group2_name, names(counts))][1:group2_replicates]
 
 coldata <- data.frame(
   Name = c(group1_cols, group2_cols),
@@ -22,7 +24,7 @@ coldata <- data.frame(
   row.names = c(group1_cols, group2_cols)
 )
 
-deseq <- DESeqDataSetFromMatrix(counts[c(group1_cols, group2_cols)], coldata, ~Group)
+deseq <- DESeqDataSetFromMatrix(round(counts[c(group1_cols, group2_cols)]), coldata, ~Group)
 dds <- DESeq(deseq)
 
 res <- results(dds)

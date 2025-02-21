@@ -1,7 +1,7 @@
 process EDGER {
     tag "$meta.id"
     label "process_medium"
-
+    
     //conda "${moduleDir}/environment.yml"
     container "quay.io/biocontainers/bioconductor-edger:4.4.0--r44h3df3fcb_0"
 
@@ -22,8 +22,6 @@ process EDGER {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    echo "" > deletethisline.txt
-    echo "Running edgeR calculation"
     Rscript /container/bin/edgeR_calculation.R ${count_matrix} ${prefix} ${args}
     """
 }

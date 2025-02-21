@@ -25,7 +25,6 @@ process CALCULATEREFERENCEINFO {
     
     """
     pip install Biopython
-    echo "" > deletethisline.txt
     python /container/bin/calculate_reference_info.py  ${blocks_df} ${chim_blocks_df} ${ref_fasta} ${prefix}
     """
 }
