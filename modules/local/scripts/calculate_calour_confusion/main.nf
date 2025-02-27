@@ -1,4 +1,4 @@
-process CALCULATEDGECONFUSION {
+process CALCULATECALOURCONFUSION {
     tag "$meta.id"
     label "process_medium"
     container "quay.io/biocontainers/pandas:2.2.1"
@@ -19,6 +19,6 @@ process CALCULATEDGECONFUSION {
     
     """
     pip install scikit-learn
-    python /container/bin/calculate_dge_confusion.py ${dge_ass} ${mapping} ${dge_ref} ${prefix} ${args} 
+    python /container/bin/calculate_calour_confusion.py ${dge_ass} ${mapping} ${dge_ref} ${prefix}
     """
 }

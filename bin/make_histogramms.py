@@ -26,7 +26,7 @@ for ax in axes.flatten():
 
 plt.tight_layout()
 plt.savefig(f"{prefix}_histograms.png", dpi=900)
-plt.close() 
+plt.close()
 
 global_min = merged_df.min().min()
 global_max = merged_df.max().max()

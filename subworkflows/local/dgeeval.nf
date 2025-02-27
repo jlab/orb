@@ -12,6 +12,9 @@ include { CALCULATEDGECONFUSION as CALCULATEDGECONFUSIONDESEQ; CALCULATEDGECONFU
 include { STACKDATAFRAMESWITHHEADER    } from '../../modules/local/scripts/stack_dataframes_with_header/main'
 include { MERGEDATAFRAMES              } from '../../modules/local/scripts/merge_dataframes/main'
 include { SORTDATAFRAME                } from '../../modules/local/scripts/sort_dataframe/main'
+include { CALOUR; CALOUR as REFCALOUR  } from '../../modules/local/dge/calour/main'
+include { SUBSETGENESUMMARY            } from '../../modules/local/scripts/subset_gene_summary/main'
+include { CALCULATECALOURCONFUSION     } from '../../modules/local/scripts/calculate_calour_confusion/main'
 
 workflow DGEEVAL {
     take:
@@ -75,12 +78,28 @@ workflow DGEEVAL {
         MERGEQUANTSFFILES.out.merged_quant_files
     )
 
+    CALOUR(
+        MERGEQUANTSFFILES.out.merged_quant_files.combine(
+            Channel.of(params.calour_min_reads)
+        )
+    )
+
     REFEDGER(
         reference_summary
     )
 
     REFDESEQ2(
         reference_summary
+    )
+
+    SUBSETGENESUMMARY(
+        reference_summary
+    )
+
+    REFCALOUR(
+        SUBSETGENESUMMARY.out.df.combine(
+            Channel.of(params.calour_min_reads)
+        )
     )
 
     DESEQ2.out.results.join(contig_cds_map).combine(
@@ -90,9 +109,21 @@ workflow DGEEVAL {
         ref: tuple(it[3], it[4])
     }.set { deseq2_dge }
 
+    CALOUR.out.results.join(contig_cds_map).combine(
+        REFCALOUR.out.results
+    ).multiMap { it ->
+        ass: tuple(it[0], it[1], it[2])
+        ref: tuple(it[3], it[4])
+    }.set { calour_dge }
+
     CALCULATEDGECONFUSIONDESEQ(
         deseq2_dge.ass,
         deseq2_dge.ref
+    )
+
+    CALCULATECALOURCONFUSION(
+        calour_dge.ass,
+        calour_dge.ref
     )
 
     EDGER.out.results.join(contig_cds_map).combine(
@@ -109,6 +140,8 @@ workflow DGEEVAL {
 
     CALCULATEDGECONFUSIONDESEQ.out.linear_cm.concat(
         CALCULATEDGECONFUSIONEDGER.out.linear_cm
+    ).concat(
+        CALCULATECALOURCONFUSION.out.linear_cm
     ).groupTuple()
     .set{ cms }
 

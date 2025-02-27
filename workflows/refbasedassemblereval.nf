@@ -125,42 +125,6 @@ workflow ASSEMBLEREVAL {
         assembler ->
         [["id":assembler.baseName.replace('_contigs', '')], assembler]
     }.set{ id_sample_assemblers }
-
-    //sample_assemblers.view()
-    //reads.view()
-    /*
-
-    sample_assemblers.map {
-        assembler ->
-        [["id":assembler.baseName.replace('_contigs', '')], assembler]
-    }
-    .combine(reference_cds)
-    .multiMap { it ->
-        contigs: tuple(it[0], it[1])
-        reference: tuple(["id": "mt_reference"], it[2])
-    }.set{ contigs_ref }
-    
-    MINIMAP2_MAP(
-        contigs_ref.contigs,
-        contigs_ref.reference
-    )
-
-    MINIMAP2_DEDUP (
-        MINIMAP2_MAP.out.mapping
-    )
-
-    SALMON_INDEX(
-        contigs_ref.contigs
-    )
-    reads.combine(SALMON_INDEX.out.index).map {
-        meta = ["id": it[0]["id"] + "_" + it[2]["id"]] + ["sample_id": it[0]["id"]] + ["single_end": it[0]["single_end"]] + ["assembler": it[2]["id"]]
-        [meta, it[1], it[3]]
-    }.set{ reads_combined }
-
-    SALMON_QUANT (
-        reads_combined
-    )
-    */
     
     reference_cds.map {
         assembler ->

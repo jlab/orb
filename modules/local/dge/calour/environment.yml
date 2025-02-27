@@ -1,0 +1,7 @@
+name: calour
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - calour
