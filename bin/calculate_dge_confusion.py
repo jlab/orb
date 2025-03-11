@@ -43,7 +43,7 @@ gene_summary["assembler_contig"], gene_summary["assembler_de"] = contig_map, de_
 true_labels = (gene_summary["cds_de"]).astype(int)
 pred_labels = (gene_summary["assembler_de"]).astype(int)
 
-cm = confusion_matrix(true_labels, pred_labels)
+cm = confusion_matrix(true_labels, pred_labels, labels=[0, 1])
 
 linear_cm = {f"{row_prefix}DE_TN": cm[0, 0], f"{row_prefix}DE_FP": cm[0, 1], f"{row_prefix}DE_FN": cm[1, 0], f"{row_prefix}DE_TP": cm[1, 1]}
 

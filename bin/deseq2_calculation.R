@@ -1,5 +1,22 @@
 library(DESeq2)
 
+run_deseq <- function(dds) {
+  tryCatch({
+    dds <- DESeq(dds)
+    message("DESeq2 ran successfully without modifications.")
+    return(dds)
+  }, error = function(e) {
+    if (grepl("every gene contains at least one zero", e$message)) {
+      message("Geometric mean error detected! Applying 'poscounts' fix...")
+      dds <- estimateSizeFactors(dds, type="poscounts")
+      dds <- DESeq(dds)
+      return(dds)
+    } else {
+      stop(e)
+    }
+  })
+}
+
 args <- commandArgs(trailingOnly = TRUE)
 
 counts_file <- args[1]
@@ -25,7 +42,7 @@ coldata <- data.frame(
 )
 
 deseq <- DESeqDataSetFromMatrix(round(counts[c(group1_cols, group2_cols)]), coldata, ~Group)
-dds <- DESeq(deseq)
+dds <- run_deseq(deseq)
 
 res <- results(dds)
 

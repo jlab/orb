@@ -33,7 +33,7 @@ not_labels = [dge for dge in assembler_dge if dge not in reference_dge]
 true_labels = [True for _ in reference_dge] + [False for _ in not_labels]
 pred_labels = [dge in assembler_dge for dge in reference_dge] + [dge in assembler_dge for dge in not_labels]
 
-cm = confusion_matrix(true_labels, pred_labels)
+cm = confusion_matrix(true_labels, pred_labels, labels=[0, 1])
 
 linear_cm = {f"{row_prefix}DE_TN": cm[0, 0], f"{row_prefix}DE_FP": cm[0, 1], f"{row_prefix}DE_FN": cm[1, 0], f"{row_prefix}DE_TP": cm[1, 1]}
 
