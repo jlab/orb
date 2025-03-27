@@ -63,7 +63,7 @@ block_records = []
 for record in SeqIO.parse(ref_transcriptome, "fasta"):
     if record.id in cds_to_block_dict:
         for block in cds_to_block_dict[record.id]:
-            block_seq = record.seq[block[1]:block[2]]
+            block_seq = record.seq[block[1]:(block[2]+1)]
             block_name = f"{record.id}_block{block[0]}"
             block_records.append(SeqIO.SeqRecord(block_seq, block_name, description=""))
 
