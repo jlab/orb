@@ -209,7 +209,8 @@ workflow ASSEMBLEREVAL {
         SEQKIT_RMDUP.out.dup_seqs,
         Channel.of(params.base_gtf_dir),
         Channel.fromPath(params.translation_df),
-        Channel.fromPath(params.gene_summary)
+        Channel.fromPath(params.gene_summary),
+        Channel.of(params.min_chimeric_overlap)
     )
 
     sample_assemblers.map {

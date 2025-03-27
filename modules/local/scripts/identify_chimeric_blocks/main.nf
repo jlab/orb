@@ -11,6 +11,7 @@ process IDENTIFYCHIMERICBLOCKS {
     path base_gtf_dir
     path translation_df
     path gene_summary
+    val min_chimeric_overlap
 
     output:
     tuple val(meta), path("${prefix}_chimeric_blocks.fa")       , emit: chim_blocks
@@ -25,6 +26,6 @@ process IDENTIFYCHIMERICBLOCKS {
 
     """
     pip install biopython==1.83
-    python /container/bin/identify_chimeric_blocks.py ${base_gtf_dir} ${gene_summary} ${translation_df} ${blocks_tsv} ${dup_seqs} ${prefix}
+    python /container/bin/identify_chimeric_blocks.py ${base_gtf_dir} ${gene_summary} ${translation_df} ${blocks_tsv} ${dup_seqs} ${min_chimeric_overlap} ${prefix}
     """
 }

@@ -1,6 +1,7 @@
 process GENERATEBLOCKS {
     tag "$meta.id"
     label "process_high"
+    cache = false
 
     //TODO: build custom python container for steps with required packages
     container "quay.io/biocontainers/pandas:2.2.1"
