@@ -20,6 +20,9 @@ process GATHERRESULTS {
     tuple val(meta), path("${prefix}_unmapped_contig_lengths_single_summary.tsv") , emit: unmapped_contig_lengths_single_summary
     tuple val(meta), path("${prefix}_unmapped_contig_lengths_multi_summary.tsv")  , emit: unmapped_contig_lengths_multi_summary
     tuple val(meta), path("${prefix}_mapped_contig_lengths_summary.tsv")          , emit: mapped_contig_lengths_summary
+    
+    path  "versions.yml"                                                                          , emit: versions
+
 
     when:
     task.ext.when == null || task.ext.when
@@ -29,9 +32,14 @@ process GATHERRESULTS {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    echo "asdas" > test.txt
-    pip install Biopython
+    pip install biopython==1.83
     python /container/bin/gather_results.py ${contig_ids} ${mapped_scores} ${mapped_chim_scores} ${length_filtered_contig_ids} \\
-                                            ${assembler_mapping} ${dup_seqs} ${gene_summary} ${contigs_fasta} ${prefix} 
+                                            ${assembler_mapping} ${dup_seqs} ${gene_summary} ${contigs_fasta} ${prefix}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+    python: "\$(python3 --version | sed 's/Python //')"
+    pandas: "\$(python3 -c 'import pandas as pd; print(pd.__version__)')"
+    END_VERSIONS
     """
 }

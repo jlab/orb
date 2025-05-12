@@ -108,10 +108,7 @@ workflow ASSEMBLEREVAL {
         file(params.reads)
     )
 
-    //ch_versions = ch_versions.mix(INPUT_CHECK.out.versions)
-    // TODO: OPTIONAL, you can use nf-validation plugin to create an input channel from the samplesheet with Channel.fromSamplesheet("input")
-    // See the documentation https://nextflow-io.github.io/nf-validation/samplesheets/fromSamplesheet/
-    // ! There is currently no tooling to help you write a sample sheet schema
+    ch_versions = ch_versions.mix(INPUT_CHECK_READS.out.versions)
 
     def prefix = params.run_prefix ?: "prefix"
 
@@ -139,10 +136,14 @@ workflow ASSEMBLEREVAL {
     SEQKIT_RMDUP(
         reference_cds_val
     )
-    
+
+    ch_versions = ch_versions.mix(SEQKIT_RMDUP.out.versions)
+
     BOWTIE2_BUILD_REFERENCE(
         SEQKIT_RMDUP.out.fastx
     )
+
+    ch_versions = ch_versions.mix(BOWTIE2_BUILD_REFERENCE.out.versions)
 
     reads
     .combine(
@@ -164,9 +165,13 @@ workflow ASSEMBLEREVAL {
         reads_ref_ch.sort_bam
     )
 
+    ch_versions = ch_versions.mix(BOWTIE2_ALIGN_REFERENCE.out.versions)
+
     BEDTOOLS_BAMTOBED_REFERENCE(
         BOWTIE2_ALIGN_REFERENCE.out.aligned
     )
+
+    ch_versions = ch_versions.mix(BEDTOOLS_BAMTOBED_REFERENCE.out.versions)
 
     BEDTOOLS_BAMTOBED_REFERENCE.out.bed.map {
         [it[1]]
@@ -179,6 +184,8 @@ workflow ASSEMBLEREVAL {
         all_reference_bed
     )
 
+    ch_versions = ch_versions.mix(STACKDATAFRAMES_REFERENCE.out.versions)
+
     STACKDATAFRAMES_REFERENCE.out.stacked_dfs.combine(
         reference_cds
     ). set { reference_cds_bed }
@@ -187,6 +194,8 @@ workflow ASSEMBLEREVAL {
         reference_cds_bed,
         SEQKIT_RMDUP.out.dup_seqs
     )
+
+    ch_versions = ch_versions.mix(GENERATEBLOCKS.out.versions)
 
     assembler_contigs
     .combine(GENERATEBLOCKS.out.blocks)
@@ -200,9 +209,13 @@ workflow ASSEMBLEREVAL {
         contigs_blocks.blocks
     )
 
+    ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
+
     MINIMAP2FILTER (
         MINIMAP2_MAP.out.mapping
     )
+
+    ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
 
     IDENTIFYCHIMERICBLOCKS(
         GENERATEBLOCKS.out.blocks_tsv,
@@ -212,6 +225,8 @@ workflow ASSEMBLEREVAL {
         Channel.fromPath(params.gene_summary),
         Channel.of(params.min_chimeric_overlap)
     )
+
+    ch_versions = ch_versions.mix(IDENTIFYCHIMERICBLOCKS.out.versions)
 
     sample_assemblers.map {
         assembler ->
@@ -229,11 +244,15 @@ workflow ASSEMBLEREVAL {
         contigs_chimeric_blocks.chimeric_blocks
     )
 
+    ch_versions = ch_versions.mix(MINIMAP2_MAP_CHIMERIC.out.versions)
+
     MINIMAP2_FILTER_CHIMERIC (
         MINIMAP2_MAP_CHIMERIC.out.mapping
     )
 
-    MINIMAP2_FILTER_CHIMERIC.out.map {
+    ch_versions = ch_versions.mix(MINIMAP2_FILTER_CHIMERIC.out.versions)
+
+    MINIMAP2_FILTER_CHIMERIC.out.map.map {
         [["id":it[0]["id"].replace('_chimeric', '')], it[1]]
     }.set{ chimeric_mapping }
 
@@ -244,6 +263,9 @@ workflow ASSEMBLEREVAL {
     EXTRACTMAPPEDIDS(
         all_mapping
     )
+
+    ch_versions = ch_versions.mix(EXTRACTMAPPEDIDS.out.versions)
+
 
     sample_assemblers.map {
         assembler ->
@@ -260,13 +282,19 @@ workflow ASSEMBLEREVAL {
         contigs_mapped_ids.mapped_ids
     )
 
+    ch_versions = ch_versions.mix(SEQKIT_GREP.out.versions)
+
     SEQKIT_SEQ(
         SEQKIT_GREP.out.filter
     )
 
+    ch_versions = ch_versions.mix(SEQKIT_SEQ.out.versions)
+
     BOWTIE2_BUILD(
         SEQKIT_SEQ.out.fastx
     )
+
+    ch_versions = ch_versions.mix(BOWTIE2_BUILD.out.versions)
 
     reads
     .combine(
@@ -296,9 +324,13 @@ workflow ASSEMBLEREVAL {
         reads_index_ch.sort_bam
     )
 
+    ch_versions = ch_versions.mix(BOWTIE2_ALIGN.out.versions)
+
     BEDTOOLS_BAMTOBED(
         BOWTIE2_ALIGN.out.aligned
     )
+
+    ch_versions = ch_versions.mix(BEDTOOLS_BAMTOBED.out.versions)
 
     BEDTOOLS_BAMTOBED.out.bed
     .map {
@@ -312,13 +344,19 @@ workflow ASSEMBLEREVAL {
         contigs_bed
     )
 
+    ch_versions = ch_versions.mix(STACKDATAFRAMES.out.versions)
+
     EXTRACTMAPPEDVALUES(
         MINIMAP2FILTER.out.map
     )
 
+    ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES.out.versions)
+
     EXTRACTMAPPEDVALUES_CHIMERIC (
         MINIMAP2_FILTER_CHIMERIC.out.map
     )
+
+    ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES_CHIMERIC.out.versions)
 
     id_sample_assemblers.join(
         SEQKIT_GREP.out.filter
@@ -329,6 +367,8 @@ workflow ASSEMBLEREVAL {
     EXTRACTIDS(
         contigs_filtered
     )
+
+    ch_versions = ch_versions.mix(EXTRACTIDS.out.versions)
 
     EXTRACTIDS.out.contig_ids.join(
         EXTRACTMAPPEDVALUES.out.values
@@ -352,6 +392,8 @@ workflow ASSEMBLEREVAL {
         combined_results
     )
 
+    ch_versions = ch_versions.mix(GATHERRESULTS.out.versions)
+
     GATHERRESULTS.out.scores.map {
         [it[1]]
     }.collect()
@@ -362,6 +404,8 @@ workflow ASSEMBLEREVAL {
     MERGEDATAFRAMESMAPPING(
         all_scores
     )
+
+    ch_versions = ch_versions.mix(MERGEDATAFRAMESMAPPING.out.versions)
 
     MERGEDATAFRAMESMAPPING.out.merged_dfs.combine(
         GENERATEBLOCKS.out.blocks_tsv.map {
@@ -377,12 +421,16 @@ workflow ASSEMBLEREVAL {
     CALCULATEFINALSCORES(
         all_scores_with_block
     )
+
+    ch_versions = ch_versions.mix(CALCULATEFINALSCORES.out.versions)
     
     CALCULATEREFERENCEINFO(
         reference_cds_val,
         GENERATEBLOCKS.out.blocks_tsv,
         IDENTIFYCHIMERICBLOCKS.out.chim_blocks_tsv
     )
+
+    ch_versions = ch_versions.mix(CALCULATEREFERENCEINFO.out.versions)
 
     Channel.of(["id": prefix + "_all_contigs"])
     .concat(
@@ -451,17 +499,22 @@ workflow ASSEMBLEREVAL {
         contig_lengths
     )
 
+    ch_versions = ch_versions.mix(MAKEHISTOGRAMS.out.versions)
+
     SORTDATAFRAME(
         CALCULATEFINALSCORES.out.final_scores,
         Channel.of(1)
     )
+
+    ch_versions = ch_versions.mix(SORTDATAFRAME.out.versions)
     
     DGEEVAL(
         assembler_contigs,
         EXTRACTMAPPEDIDS.out.mapped_ids,
         reads,
         gene_summary_prefix,
-        MINIMAP2FILTER.out.map
+        MINIMAP2FILTER.out.map,
+        ch_versions
     )
 
     REFEVAL(
@@ -479,258 +532,6 @@ workflow ASSEMBLEREVAL {
     MERGEDRESULTS(
         all_scores_dge
     )
-
-    /*
-
-    BOWTIE2_BUILD(
-        id_sample_assemblers
-    )
-
-    reads
-    .combine(
-        BOWTIE2_BUILD.out.index
-    )
-    .combine(Channel.of(true))
-    .combine(Channel.of(false))
-    .multiMap { it ->
-        reads: tuple(
-             [
-                "id"           : it[0]["id"] + "_" + it[2]["id"],
-                "single_end"   : it[0]["single_end"],
-                "read_id"      : it[0]["id"],
-                "assembler_id" : it[2]["id"]
-            ],
-            it[1]
-        )
-        index: tuple(it[2], it[3])
-        save_unaligned: it[4]
-        sort_bam: it[5]
-    }.set { reads_index_ch }
-
-    BOWTIE2_ALIGN(
-        reads_index_ch.reads,
-        reads_index_ch.index,
-        reads_index_ch.save_unaligned,
-        reads_index_ch.sort_bam
-    )
-
-    BEDTOOLS_BAMTOBED(
-        BOWTIE2_ALIGN.out.aligned
-    )
-
-    //TODO call the script and cat the bed files
-
-    BEDTOOLS_BAMTOBED.out.bed.combine(
-        BOWTIE2_ALIGN.out.log, by: 0
-    ).combine(
-        gene_summary
-    ).multiMap { it ->
-        bed: tuple(it[0], it[1])
-        gene_summary: tuple([:], it[3])
-        log: tuple(it[0], it[2])
-    }.set{ bed_gene_summary }
-
-    SCRIPT_MAPPING_STATS(
-        bed_gene_summary.bed,
-        bed_gene_summary.gene_summary,
-        bed_gene_summary.log
-    )
-
-    BEDTOOLS_BAMTOBED.out.bed.map {
-        meta = ["id": it[0]["assembler_id"]]
-        [meta, it[1]]
-    }.groupTuple()
-    .combine(
-        gene_summary
-    ).multiMap { it ->
-        bed: tuple(it[0], it[1])
-        gene_summary: tuple([:], it[2])
-    }.set{ bed_gene_summary }
-
-
-    ASSEMBLYREADSTATS(
-        bed_gene_summary.bed,
-        bed_gene_summary.gene_summary
-    )
-
-    SCRIPT_MAPPING_STATS.out.logs.map {
-        meta = ["id": it[0]["assembler_id"]]
-        [meta, it[1]]
-    }.groupTuple()
-    .set{ logs }
-
-    MERGEMAPPINGLOGS (
-        logs
-    )
-
-    MERGEMAPPINGLOGS.out.log_mean.map {
-        meta = ["id": "all_assembler"]
-        [meta, it[1]]
-    }.groupTuple()
-    .set { all_logs }
-
-    MERGEALLLOGS (
-        all_logs
-    )
-
-    SUMMARIZEMAPPINGSTATS(
-        ASSEMBLYREADSTATS.out.counts
-    )
-    */
-
-    /*
-    SUMMARIZEMAPPINGSTATS.out.mapping_stats.map {
-        [it[1]]
-    }.collect()
-    .map {
-        [["id": "all_assembler_mapping_stats"], it[0]]
-    }. set { all_mapping_stats }
-
-    SUMMARIZEMAPPINGSTATS.out.contig_gene_stats.map {
-        [it[1]]
-    }.collect()
-    .map {
-        [["id": "all_assembler_contig_gene_stats"], it[0]]
-    }. set { contig_gene_stats }
-
-    MERGEDATAFRAMESMAPPING(
-        all_mapping_stats
-    )
-
-    MERGEDATAFRAMECONTIG(
-        contig_gene_stats
-    )
-    */
-
-    
-
-    /*
-    ass_contigs = sample_assemblers.map {
-        sample_id, assembler ->
-        contigs = assembler.values()
-        [sample_id, contigs]
-    }
-
-
-    renamed_contigs = RENAMECONTIGS(
-        ass_contigs
-    )
-    .flatten()
-    .map {
-        contig ->
-        def assembler = contig.getName().split("__")[1].minus("_contigs.fa")
-        [["id": assembler], contig]
-    }
-    .groupTuple()
-
-    QUAST_ASSEMBLER (
-        renamed_contigs,
-        [[:],[]],
-        [[:],[]]
-    )
-
-    ASSEMLYLENGTHVISUALIZE_ASSEMBLY_CONTIG(renamed_contigs)
-
-    QUAST_SAMPLE (
-        ass_contigs,
-        [[:],[]],
-        [[:],[]]
-    )
-
-    SAMPLELENGTHVISUALIZE_ASSEMBLY_CONTIG(ass_contigs)
-
-    all_contigs = Channel.of(["id":"all_assemblies"])
-    .concat(renamed_contigs
-        .map {
-            it[1]
-        }.collect()
-    )
-    .toList()
-
-    QUAST (
-        all_contigs,
-        [[:],[]],
-        [[:],[]]
-    )
-
-    contigs_per_sample_and_assembler = sample_assemblers
-    .map {
-        sample, assemblers ->
-        def list = []
-        sample["single_end"] = false
-        for (assembler in assemblers.keySet()) {
-            def sampleCopy = sample.clone()
-            sampleCopy["assembler"] = assembler
-            list.add([sampleCopy, assemblers[assembler]])
-        }
-        [list]
-    }
-    .flatten()
-    .collate(2)
-
-    SALMON_INDEX(
-        contigs_per_sample_and_assembler
-    )
-
-    index_with_assemblername = SALMON_INDEX.out.index
-        .map {
-            meta, index ->
-            meta_copy = meta.clone()
-            ass_copy = meta.clone()
-            assembler = ass_copy["assembler"]
-            meta_copy.remove("assembler")
-            meta_copy.remove("sample")
-            [meta_copy, index, assembler]
-        }
-
-    reads_and_contigs_per_sample_and_assembler = reads.map { it ->
-        def id = it[0]
-        id_copy = id.clone()
-        id_copy["id"] = id_copy["id"].replace("_T1", "")
-        [id_copy, it[1]]
-    }
-
-    reads_combined = reads_and_contigs_per_sample_and_assembler//.view()
-        .combine(index_with_assemblername, by:0)
-        .map {
-            meta, reads, contigs, assembler ->
-            meta_copy = meta.clone()
-            meta_copy["sample"] = meta_copy["id"]
-            meta_copy["assembler"] = assembler
-            meta_copy["id"] = meta_copy["id"].plus(":").plus(assembler)
-            [meta_copy, reads, contigs]
-        }
-
-
-    SALMON_QUANT (
-        reads_combined
-    )
-
-    ch_read_counts_grouped_by_sample = SALMON_QUANT.out.results.map {
-        meta, results ->
-        meta_copy = meta.clone()
-        meta_copy.remove("assembler")
-        meta_copy["id"] = meta["sample"]
-        meta_copy.remove("sample")
-        [meta_copy, results]
-    }.groupTuple()
-
-    ch_read_counts_grouped_by_sample
-
-    MULTICOVERAGEVISUALISER_ASSEMBLY_COUNTS(ch_read_counts_grouped_by_sample)
-
-    ch_versions = ch_versions.mix(QUAST_SAMPLE.out.versions)
-    ch_versions = ch_versions.mix(SALMON_INDEX.out.versions)
-
-    //COVERAGEVISUALIZE_ASSEMBLY_COUNTS(
-    //    SALMON_QUANT.out.results
-    //)
-
-
-    CUSTOM_DUMPSOFTWAREVERSIONS (
-        ch_versions.unique().collectFile(name: 'collated_versions.yml')
-    )
-    */
 }
 
 /*

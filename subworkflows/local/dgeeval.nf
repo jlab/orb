@@ -23,6 +23,7 @@ workflow DGEEVAL {
     reads
     reference_summary
     contig_cds_map
+    ch_versions
 
     main:
     def prefix = params.run_prefix ?: "prefix"
@@ -38,6 +39,8 @@ workflow DGEEVAL {
         contigs_mapped_ids.contigs,
         contigs_mapped_ids.mapped_ids
     )
+
+    ch_versions = ch_versions.mix(SEQKIT_GREP2.out.versions)
 
     SALMON_INDEX(
         SEQKIT_GREP2.out.filter
@@ -62,6 +65,8 @@ workflow DGEEVAL {
         reads_index_combined
     )
 
+    ch_versions = ch_versions.mix(SALMON_QUANT.out.versions)
+
     SALMON_QUANT.out.results.map {
         tuple(["id": it[0]["assembler_id"]], it[1])
     }.groupTuple().set { quant_files_grouped }
@@ -70,13 +75,19 @@ workflow DGEEVAL {
         quant_files_grouped
     )
 
+    ch_versions = ch_versions.mix(MERGEQUANTSFFILES.out.versions)
+
     EDGER(
         MERGEQUANTSFFILES.out.merged_quant_files
     )
 
+    ch_versions = ch_versions.mix(EDGER.out.versions)
+
     DESEQ2(
         MERGEQUANTSFFILES.out.merged_quant_files
     )
+
+    ch_versions = ch_versions.mix(DESEQ2.out.versions)
 
     CALOUR(
         MERGEQUANTSFFILES.out.merged_quant_files.combine(
@@ -84,23 +95,33 @@ workflow DGEEVAL {
         )
     )
 
+    ch_versions = ch_versions.mix(CALOUR.out.versions)
+
     REFEDGER(
         reference_summary
     )
+
+    ch_versions = ch_versions.mix(REFEDGER.out.versions)
 
     REFDESEQ2(
         reference_summary
     )
 
+    ch_versions = ch_versions.mix(REFDESEQ2.out.versions)
+
     SUBSETGENESUMMARY(
         reference_summary
     )
+
+    ch_versions = ch_versions.mix(SUBSETGENESUMMARY.out.versions)
 
     REFCALOUR(
         SUBSETGENESUMMARY.out.df.combine(
             Channel.of(params.calour_min_reads)
         )
     )
+
+    ch_versions = ch_versions.mix(REFCALOUR.out.versions)    
 
     DESEQ2.out.results.join(contig_cds_map).combine(
         REFDESEQ2.out.results
@@ -165,4 +186,5 @@ workflow DGEEVAL {
 
     emit:
     eval = SORTDATAFRAME.out.dataframe
+    ch_versions
 }

@@ -12,6 +12,7 @@ process STACKDATAFRAMES {
 
     output:
     tuple val(meta), path("${prefix}.tsv")       , emit: stacked_dfs
+    path  "versions.yml"                         , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -21,5 +22,10 @@ process STACKDATAFRAMES {
     prefix = task.ext.prefix ?: "${meta.id}"
     """
     cat ${dfs} > ${prefix}.tsv
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+    cat: "\$(cat --version | head -n1 | sed 's/cat (GNU coreutils) //')"
+    END_VERSIONS
     """
 }

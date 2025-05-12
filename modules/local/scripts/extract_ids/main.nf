@@ -9,6 +9,7 @@ process EXTRACTIDS {
 
     output:
     tuple val(meta), path("${prefix}_contigs_ids.txt"), path("${prefix}_length_filtered_ids.txt") , emit: contig_ids
+    path  "versions.yml"                                                                          , emit: versions
 
     when:
     task.ext.when == null || task.ext.when

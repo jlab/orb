@@ -37,7 +37,7 @@ group2_cols <- names(counts)[grepl(group2_name, names(counts))][1:group2_replica
 
 coldata <- data.frame(
   Name = c(group1_cols, group2_cols),
-  Group = c(rep("group1", 10), rep("group2", 10)),
+  Group = c(rep(group1_name, group1_replicates), rep(group2_name, group2_replicates)),
   row.names = c(group1_cols, group2_cols)
 )
 

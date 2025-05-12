@@ -9,7 +9,7 @@ process EXTRACTMAPPEDIDS {
 
     output:
     tuple val(meta), path("${prefix}_mapped_ids.txt")       , emit: mapped_ids
-    path "versions.yml"                    , emit: versions
+    path "versions.yml"                                     , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -20,6 +20,7 @@ process EXTRACTMAPPEDIDS {
 
     """
     jq -r 'keys[]' ${mapped_contigs} ${mapped_contigs_chim} > ${prefix}_mapped_ids.txt
+
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
         jq: \$( jq --version | sed 's/jq-//' )

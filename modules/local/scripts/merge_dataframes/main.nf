@@ -10,6 +10,7 @@ process MERGEDATAFRAMES {
 
     output:
     tuple val(meta), path("${prefix}.tsv")       , emit: merged_dfs
+    path  "versions.yml"                         , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -20,5 +21,11 @@ process MERGEDATAFRAMES {
 
     """
     python /container/bin/merge_dataframes.py ${dfs} > ${prefix}.tsv
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+    python: "\$(python3 --version | sed 's/Python //')"
+    pandas: "\$(python3 -c 'import pandas as pd; print(pd.__version__)')"
+    END_VERSIONS
     """
 }
