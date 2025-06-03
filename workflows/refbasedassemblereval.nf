@@ -117,11 +117,6 @@ workflow ASSEMBLEREVAL {
     reference_cds = Channel.fromPath(params.reference_cds)
     gene_summary = Channel.fromPath(params.gene_summary)
     Channel.of(["id": prefix]).combine(gene_summary).set{ gene_summary_prefix }
-
-    sample_assemblers.map {
-        assembler ->
-        [["id":assembler.baseName.replace('_contigs', '')], assembler]
-    }.set{ id_sample_assemblers }
     
     reference_cds.map {
         assembler ->
@@ -133,12 +128,16 @@ workflow ASSEMBLEREVAL {
         [["id": assembler.baseName.replace('_contigs', '')], assembler]
     }.set{ assembler_contigs }
 
+    
+
     SEQKIT_RMDUP(
         reference_cds_val
     )
 
     ch_versions = ch_versions.mix(SEQKIT_RMDUP.out.versions)
 
+    //start
+/*
     BOWTIE2_BUILD_REFERENCE(
         SEQKIT_RMDUP.out.fastx
     )
@@ -197,8 +196,38 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(GENERATEBLOCKS.out.versions)
 
+    IDENTIFYCHIMERICBLOCKS(
+        GENERATEBLOCKS.out.blocks_tsv,
+        SEQKIT_RMDUP.out.dup_seqs,
+        Channel.of(params.base_gtf_dir),
+        Channel.fromPath(params.translation_df),
+        Channel.fromPath(params.gene_summary),
+        Channel.of(params.min_chimeric_overlap)
+    )
+
+    ch_versions = ch_versions.mix(IDENTIFYCHIMERICBLOCKS.out.versions)
+*/
+    //end?
+
+    Channel.of(["id": prefix]).combine(
+        Channel.fromPath(params.blocks)
+    ).set{ blocks_ch }
+
+    Channel.of(["id": prefix]).combine(
+        Channel.fromPath(params.blocks_tsv)
+    ).set{ blocks_tsv_ch }
+    
+    Channel.of(["id": prefix]).combine(
+        Channel.fromPath(params.overlap_blocks)
+    ).set{ overlap_blocks_ch }
+    
+    Channel.of(["id": prefix]).combine(
+        Channel.fromPath(params.overlap_blocks_tsv)
+    ).set{ overlap_blocks_tsv_ch }
+
+
     assembler_contigs
-    .combine(GENERATEBLOCKS.out.blocks)
+    .combine(blocks_ch)
     .multiMap { it ->
         contigs: tuple(it[0], it[1])
         blocks: tuple(it[2], it[3])
@@ -217,22 +246,11 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
 
-    IDENTIFYCHIMERICBLOCKS(
-        GENERATEBLOCKS.out.blocks_tsv,
-        SEQKIT_RMDUP.out.dup_seqs,
-        Channel.of(params.base_gtf_dir),
-        Channel.fromPath(params.translation_df),
-        Channel.fromPath(params.gene_summary),
-        Channel.of(params.min_chimeric_overlap)
-    )
-
-    ch_versions = ch_versions.mix(IDENTIFYCHIMERICBLOCKS.out.versions)
-
     sample_assemblers.map {
         assembler ->
         [["id":assembler.baseName.replace('_contigs', '_chimeric')], assembler]
     }
-    .combine(IDENTIFYCHIMERICBLOCKS.out.chim_blocks)
+    .combine(overlap_blocks_ch)
     .multiMap { it ->
         contigs: tuple(it[0], it[1])
         chimeric_blocks: tuple(it[2], it[3])
@@ -358,7 +376,7 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES_CHIMERIC.out.versions)
 
-    id_sample_assemblers.join(
+    assembler_contigs.join(
         SEQKIT_GREP.out.filter
     ).join(
         SEQKIT_SEQ.out.fastx
@@ -408,12 +426,12 @@ workflow ASSEMBLEREVAL {
     ch_versions = ch_versions.mix(MERGEDATAFRAMESMAPPING.out.versions)
 
     MERGEDATAFRAMESMAPPING.out.merged_dfs.combine(
-        GENERATEBLOCKS.out.blocks_tsv.map {
+        blocks_tsv_ch.map {
             it[1]
         }
     )
     .combine(
-        IDENTIFYCHIMERICBLOCKS.out.chim_blocks_tsv.map {
+        overlap_blocks_tsv_ch.map {
             it[1]
         }
     ).set { all_scores_with_block }
@@ -426,8 +444,8 @@ workflow ASSEMBLEREVAL {
     
     CALCULATEREFERENCEINFO(
         reference_cds_val,
-        GENERATEBLOCKS.out.blocks_tsv,
-        IDENTIFYCHIMERICBLOCKS.out.chim_blocks_tsv
+        blocks_tsv_ch,
+        overlap_blocks_tsv_ch
     )
 
     ch_versions = ch_versions.mix(CALCULATEREFERENCEINFO.out.versions)
@@ -516,12 +534,13 @@ workflow ASSEMBLEREVAL {
         MINIMAP2FILTER.out.map,
         ch_versions
     )
-
+    /*
     REFEVAL(
         reference_cds_val,
         reads,
         BOWTIE2_ALIGN_REFERENCE.out.aligned
     )
+    */
 
     SORTDATAFRAME.out.dataframe.combine(
         DGEEVAL.out.eval
