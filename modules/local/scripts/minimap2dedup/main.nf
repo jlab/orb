@@ -10,6 +10,7 @@ process MINIMAP2FILTER {
 
     output:
     tuple val(meta), path("*.json")   , emit: map
+    path  "versions.yml"              , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -18,6 +19,12 @@ process MINIMAP2FILTER {
     def args = task.ext.args ?: ''
 
     """
-    python /container/bin/minimap2_filter.py ${mapping} 
+    python /container/bin/minimap2_filter.py ${mapping}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+    python: "\$(python3 --version | sed 's/Python //')"
+    pandas: "\$(python3 -c 'import pandas as pd; print(pd.__version__)')"
+    END_VERSIONS
     """
 }

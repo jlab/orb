@@ -15,6 +15,7 @@ process CALCULATEREFERENCEINFO {
     path("${prefix}_cds_lengths.tsv")                        , emit: cds_lenghts
     path("${prefix}_block_lengths.tsv")                      , emit: block_lengths
     path("${prefix}_chimeric_block_lengths.tsv")             , emit: chimeric_block_lengths
+    path  "versions.yml"                                     , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -24,8 +25,13 @@ process CALCULATEREFERENCEINFO {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    pip install Biopython
-    echo "" > deletethisline.txt
+    pip install biopython==1.83
     python /container/bin/calculate_reference_info.py  ${blocks_df} ${chim_blocks_df} ${ref_fasta} ${prefix}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+    python: "\$(python3 --version | sed 's/Python //')"
+    pandas: "\$(python3 -c 'import pandas as pd; print(pd.__version__)')"
+    END_VERSIONS
     """
 }

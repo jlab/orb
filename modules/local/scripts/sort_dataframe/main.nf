@@ -1,4 +1,4 @@
-process MERGEDATAFRAMES {
+process SORTDATAFRAME {
     tag "$meta.id"
     label "process_low"
 
@@ -6,11 +6,12 @@ process MERGEDATAFRAMES {
     container "quay.io/biocontainers/pandas:2.2.1"
 
     input:
-    tuple val(meta), path(dfs)
+    tuple val(meta), path(df)
+    val axis
 
     output:
-    tuple val(meta), path("${prefix}.tsv")       , emit: merged_dfs
-    path  "versions.yml"                         , emit: versions
+    tuple val(meta), path("${prefix}_sorted.tsv")   , emit: dataframe
+    path  "versions.yml"                            , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -20,7 +21,7 @@ process MERGEDATAFRAMES {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python /container/bin/merge_dataframes.py ${dfs} > ${prefix}.tsv
+    python /container/bin/sort_dataframe.py ${df} ${axis} ${prefix}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

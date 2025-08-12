@@ -7,11 +7,12 @@ chim_block_file = sys.argv[2]
 reference_fasta = sys.argv[3]
 prefix = sys.argv[4]
 
-blocks = pd.read_csv(blocks_file, sep="\t")
+blocks = pd.read_csv(blocks_file, sep="\t", header=None)
+blocks.columns = ["cds", "start", "end", "block_name", "fragment_count"]
 chimeric_blocks = pd.read_csv(chim_block_file, sep="\t")
 
 blocks["length"] = blocks["end"] - blocks["start"]
-chimeric_blocks["length"] = chimeric_blocks["genomic_end"] - chimeric_blocks["genomic_start"]
+chimeric_blocks["length"] = chimeric_blocks["overlap_block_end"] - chimeric_blocks["overlap_block_start"]
 
 total_block_length = blocks["length"].sum()
 total_chimeric_block_length = chimeric_blocks["length"].sum()

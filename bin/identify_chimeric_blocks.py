@@ -10,7 +10,8 @@ gene_summary = sys.argv[2]
 translation_df = sys.argv[3]
 all_blocks = sys.argv[4]
 dup_ids_group = sys.argv[5]
-prefix = sys.argv[6]
+minimum_chimeric_overlap = int(sys.argv[6])
+prefix = sys.argv[7]
 
 pd_gene = pd.read_csv(gene_summary)
 pd_translation = pd.read_csv(translation_df, index_col=0)
@@ -42,16 +43,35 @@ for group_name, group in pd_gene.groupby("accession"):
     else:
         raise ValueError(f"Multiple or no genome files found for {accession}")
 
-    pd_group_gtf = pd.read_csv(
-        ref_mapping,
+    pd_group_gtf = pd.read_csv(ref_mapping,
         sep="\t",
         header=None,
         skiprows=5,
         usecols=[0, 2, 3, 4, 8],
         names=["chromosome", "feature", "start", "end", "attributes"]
     )
+
     pd_group_gtf = pd_group_gtf[pd_group_gtf["feature"] == "CDS"]
+
     pd_group_gtf["gene_id"] = pd_group_gtf["attributes"].str.extract(pattern)
+
+    # merge ribosomal shifts
+
+    pd_group_gtf["has_shift"] = pd_group_gtf["attributes"].str.contains("ribosomal slippage")
+
+    pd_has_shift = pd_group_gtf[pd_group_gtf["has_shift"]].copy()
+
+    pd_merged_shifts = pd_has_shift.groupby("gene_id").agg(
+        chromosome=("chromosome", "first"),
+        feature=("feature", "first"),
+        start=("start", "min"),
+        end=("end", "max"),
+    ).reset_index()
+
+    pd_group_gtf = pd.concat([
+        pd_group_gtf[~pd_group_gtf["has_shift"]].drop(columns="has_shift"),
+        pd_merged_shifts
+    ])
 
     # the same gene can occur in multiple locations, so it needs to be a list of lists
     gene_to_genomic_location = (
@@ -74,17 +94,14 @@ pd_gene = pd_gene[~pd_gene["genomic_locations"].isna()]
 gene_location_dict = pd_gene.set_index("gene_name").to_dict()["genomic_locations"]
 
 # we need to merge the genomic coordinates of genes in deduplicated groups
-for k, v in group_dict.items():
-    for id in v[1:]:
-        if k not in gene_location_dict or id not in gene_location_dict:
-            print(f"Warning: {k} or {id} not in gene_location_dict, make sure this is intended, skipping")
-            continue
-        gene_location_dict[k] += gene_location_dict.pop(id)
+# what I can do instead is append the coordinates with original cds name
+
 
 pd_blocks["genomic_location"] = pd_blocks["cds"].map(gene_location_dict)
 
+
 if pd_blocks["genomic_location"].isna().sum() > 0:
-    print(f"Warning: {pd_blocks["genomic_location"].isna().sum()} blocks have no genomic location")
+    print(f"Warning: {pd_blocks['genomic_location'].isna().sum()} blocks have no genomic location")
     print("The dataframe:")
     print(pd_blocks[pd_blocks["genomic_location"].isna()])
     # raise ValueError("Some blocks have no genomic location, have a look at the dataframe")
@@ -92,6 +109,13 @@ if pd_blocks["genomic_location"].isna().sum() > 0:
 pd_blocks = pd_blocks[~pd_blocks["genomic_location"].isna()]
 
 pd_blocks_exploded = pd_blocks.explode("genomic_location")
+
+for k, v in group_dict.items():
+    for id in v[1:]:
+        if k not in gene_location_dict or id not in gene_location_dict:
+            print(f"Warning: {k} or {id} not in gene_location_dict, make sure this is intended, skipping")
+            continue
+        gene_location_dict[k] += gene_location_dict.pop(id)
 
 pd_blocks_exploded['accession'], pd_blocks_exploded['chromosome'], pd_blocks_exploded['cds_genomic_start'], pd_blocks_exploded['cds_genomic_end'] = zip(*pd_blocks_exploded['genomic_location'])
 pd_blocks_exploded.drop(columns=["genomic_location"], inplace=True)
@@ -113,7 +137,7 @@ for accession, blocks_per_accession in pd_blocks_exploded.groupby("accession"):
                 origin_block_ids = [row["block_index"]]
                 new_chromosome = False
             else:
-                if row["block_genomic_start"] <= current_end:
+                if row["block_genomic_start"] <= current_end + minimum_chimeric_overlap:
                     current_end = row["block_genomic_end"]
                     origin_cds.append(row["cds"])
                     origin_block_ids.append(row["block_index"])

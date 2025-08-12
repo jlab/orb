@@ -36,7 +36,9 @@ ch_multiqc_custom_methods_description = params.multiqc_methods_description ? fil
 // SUBWORKFLOW: Consisting of a mix of local and nf-core/modules
 //
 include { INPUT_CHECK_CONTIGS } from '../subworkflows/local/input_check_contig'
-include { INPUT_CHECK_READS } from '../subworkflows/local/input_check_reads'
+include { INPUT_CHECK_READS   } from '../subworkflows/local/input_check_reads'
+include { DGEEVAL             } from '../subworkflows/local/dgeeval'
+include { REFEVAL             } from '../subworkflows/local/refeval'
 include { LENGTHVISUALIZE_ASSEMBLY_CONTIG as ASSEMLYLENGTHVISUALIZE_ASSEMBLY_CONTIG} from '../modules/local/rvisualise/contiglength'
 include { LENGTHVISUALIZE_ASSEMBLY_CONTIG as SAMPLELENGTHVISUALIZE_ASSEMBLY_CONTIG } from '../modules/local/rvisualise/contiglength'
 
@@ -82,6 +84,8 @@ include { EXTRACTIDS                  } from '../modules/local/scripts/extract_i
 include { CALCULATEFINALSCORES        } from '../modules/local/scripts/calculate_final_scores/main'
 include { CALCULATEREFERENCEINFO      } from '../modules/local/scripts/calculate_reference_info/main'
 include { MAKEHISTOGRAMS              } from '../modules/local/scripts/make_histograms/main'
+include { SORTDATAFRAME                } from '../modules/local/scripts/sort_dataframe/main'
+include { STACKDATAFRAMESWITHHEADER as MERGEDRESULTS } from '../modules/local/scripts/stack_dataframes_with_header/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -104,10 +108,7 @@ workflow ASSEMBLEREVAL {
         file(params.reads)
     )
 
-    //ch_versions = ch_versions.mix(INPUT_CHECK.out.versions)
-    // TODO: OPTIONAL, you can use nf-validation plugin to create an input channel from the samplesheet with Channel.fromSamplesheet("input")
-    // See the documentation https://nextflow-io.github.io/nf-validation/samplesheets/fromSamplesheet/
-    // ! There is currently no tooling to help you write a sample sheet schema
+    ch_versions = ch_versions.mix(INPUT_CHECK_READS.out.versions)
 
     def prefix = params.run_prefix ?: "prefix"
 
@@ -115,47 +116,7 @@ workflow ASSEMBLEREVAL {
     reads = INPUT_CHECK_READS.out.reads
     reference_cds = Channel.fromPath(params.reference_cds)
     gene_summary = Channel.fromPath(params.gene_summary)
-
-    sample_assemblers.map {
-        assembler ->
-        [["id":assembler.baseName.replace('_contigs', '')], assembler]
-    }.set{ id_sample_assemblers }
-
-    //sample_assemblers.view()
-    //reads.view()
-    /*
-
-    sample_assemblers.map {
-        assembler ->
-        [["id":assembler.baseName.replace('_contigs', '')], assembler]
-    }
-    .combine(reference_cds)
-    .multiMap { it ->
-        contigs: tuple(it[0], it[1])
-        reference: tuple(["id": "mt_reference"], it[2])
-    }.set{ contigs_ref }
-    
-    MINIMAP2_MAP(
-        contigs_ref.contigs,
-        contigs_ref.reference
-    )
-
-    MINIMAP2_DEDUP (
-        MINIMAP2_MAP.out.mapping
-    )
-
-    SALMON_INDEX(
-        contigs_ref.contigs
-    )
-    reads.combine(SALMON_INDEX.out.index).map {
-        meta = ["id": it[0]["id"] + "_" + it[2]["id"]] + ["sample_id": it[0]["id"]] + ["single_end": it[0]["single_end"]] + ["assembler": it[2]["id"]]
-        [meta, it[1], it[3]]
-    }.set{ reads_combined }
-
-    SALMON_QUANT (
-        reads_combined
-    )
-    */
+    Channel.of(["id": prefix]).combine(gene_summary).set{ gene_summary_prefix }
     
     reference_cds.map {
         assembler ->
@@ -167,13 +128,21 @@ workflow ASSEMBLEREVAL {
         [["id": assembler.baseName.replace('_contigs', '')], assembler]
     }.set{ assembler_contigs }
 
+    
+
     SEQKIT_RMDUP(
         reference_cds_val
     )
-    
+
+    ch_versions = ch_versions.mix(SEQKIT_RMDUP.out.versions)
+
+    //start
+/*
     BOWTIE2_BUILD_REFERENCE(
         SEQKIT_RMDUP.out.fastx
     )
+
+    ch_versions = ch_versions.mix(BOWTIE2_BUILD_REFERENCE.out.versions)
 
     reads
     .combine(
@@ -195,9 +164,13 @@ workflow ASSEMBLEREVAL {
         reads_ref_ch.sort_bam
     )
 
+    ch_versions = ch_versions.mix(BOWTIE2_ALIGN_REFERENCE.out.versions)
+
     BEDTOOLS_BAMTOBED_REFERENCE(
         BOWTIE2_ALIGN_REFERENCE.out.aligned
     )
+
+    ch_versions = ch_versions.mix(BEDTOOLS_BAMTOBED_REFERENCE.out.versions)
 
     BEDTOOLS_BAMTOBED_REFERENCE.out.bed.map {
         [it[1]]
@@ -210,6 +183,8 @@ workflow ASSEMBLEREVAL {
         all_reference_bed
     )
 
+    ch_versions = ch_versions.mix(STACKDATAFRAMES_REFERENCE.out.versions)
+
     STACKDATAFRAMES_REFERENCE.out.stacked_dfs.combine(
         reference_cds
     ). set { reference_cds_bed }
@@ -219,8 +194,40 @@ workflow ASSEMBLEREVAL {
         SEQKIT_RMDUP.out.dup_seqs
     )
 
+    ch_versions = ch_versions.mix(GENERATEBLOCKS.out.versions)
+
+    IDENTIFYCHIMERICBLOCKS(
+        GENERATEBLOCKS.out.blocks_tsv,
+        SEQKIT_RMDUP.out.dup_seqs,
+        Channel.of(params.base_gtf_dir),
+        Channel.fromPath(params.translation_df),
+        Channel.fromPath(params.gene_summary),
+        Channel.of(params.min_chimeric_overlap)
+    )
+
+    ch_versions = ch_versions.mix(IDENTIFYCHIMERICBLOCKS.out.versions)
+*/
+    //end?
+
+    Channel.of(["id": prefix]).combine(
+        Channel.fromPath(params.blocks)
+    ).set{ blocks_ch }
+
+    Channel.of(["id": prefix]).combine(
+        Channel.fromPath(params.blocks_tsv)
+    ).set{ blocks_tsv_ch }
+    
+    Channel.of(["id": prefix]).combine(
+        Channel.fromPath(params.overlap_blocks)
+    ).set{ overlap_blocks_ch }
+    
+    Channel.of(["id": prefix]).combine(
+        Channel.fromPath(params.overlap_blocks_tsv)
+    ).set{ overlap_blocks_tsv_ch }
+
+
     assembler_contigs
-    .combine(GENERATEBLOCKS.out.blocks)
+    .combine(blocks_ch)
     .multiMap { it ->
         contigs: tuple(it[0], it[1])
         blocks: tuple(it[2], it[3])
@@ -231,23 +238,19 @@ workflow ASSEMBLEREVAL {
         contigs_blocks.blocks
     )
 
+    ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
+
     MINIMAP2FILTER (
         MINIMAP2_MAP.out.mapping
     )
 
-    IDENTIFYCHIMERICBLOCKS(
-        GENERATEBLOCKS.out.blocks_tsv,
-        SEQKIT_RMDUP.out.dup_seqs,
-        Channel.of(params.base_gtf_dir),
-        Channel.fromPath(params.translation_df),
-        Channel.fromPath(params.gene_summary)
-    )
+    ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
 
     sample_assemblers.map {
         assembler ->
         [["id":assembler.baseName.replace('_contigs', '_chimeric')], assembler]
     }
-    .combine(IDENTIFYCHIMERICBLOCKS.out.chim_blocks)
+    .combine(overlap_blocks_ch)
     .multiMap { it ->
         contigs: tuple(it[0], it[1])
         chimeric_blocks: tuple(it[2], it[3])
@@ -259,11 +262,15 @@ workflow ASSEMBLEREVAL {
         contigs_chimeric_blocks.chimeric_blocks
     )
 
+    ch_versions = ch_versions.mix(MINIMAP2_MAP_CHIMERIC.out.versions)
+
     MINIMAP2_FILTER_CHIMERIC (
         MINIMAP2_MAP_CHIMERIC.out.mapping
     )
 
-    MINIMAP2_FILTER_CHIMERIC.out.map {
+    ch_versions = ch_versions.mix(MINIMAP2_FILTER_CHIMERIC.out.versions)
+
+    MINIMAP2_FILTER_CHIMERIC.out.map.map {
         [["id":it[0]["id"].replace('_chimeric', '')], it[1]]
     }.set{ chimeric_mapping }
 
@@ -274,6 +281,9 @@ workflow ASSEMBLEREVAL {
     EXTRACTMAPPEDIDS(
         all_mapping
     )
+
+    ch_versions = ch_versions.mix(EXTRACTMAPPEDIDS.out.versions)
+
 
     sample_assemblers.map {
         assembler ->
@@ -290,13 +300,19 @@ workflow ASSEMBLEREVAL {
         contigs_mapped_ids.mapped_ids
     )
 
+    ch_versions = ch_versions.mix(SEQKIT_GREP.out.versions)
+
     SEQKIT_SEQ(
         SEQKIT_GREP.out.filter
     )
 
+    ch_versions = ch_versions.mix(SEQKIT_SEQ.out.versions)
+
     BOWTIE2_BUILD(
         SEQKIT_SEQ.out.fastx
     )
+
+    ch_versions = ch_versions.mix(BOWTIE2_BUILD.out.versions)
 
     reads
     .combine(
@@ -326,9 +342,13 @@ workflow ASSEMBLEREVAL {
         reads_index_ch.sort_bam
     )
 
+    ch_versions = ch_versions.mix(BOWTIE2_ALIGN.out.versions)
+
     BEDTOOLS_BAMTOBED(
         BOWTIE2_ALIGN.out.aligned
     )
+
+    ch_versions = ch_versions.mix(BEDTOOLS_BAMTOBED.out.versions)
 
     BEDTOOLS_BAMTOBED.out.bed
     .map {
@@ -342,15 +362,21 @@ workflow ASSEMBLEREVAL {
         contigs_bed
     )
 
+    ch_versions = ch_versions.mix(STACKDATAFRAMES.out.versions)
+
     EXTRACTMAPPEDVALUES(
         MINIMAP2FILTER.out.map
     )
+
+    ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES.out.versions)
 
     EXTRACTMAPPEDVALUES_CHIMERIC (
         MINIMAP2_FILTER_CHIMERIC.out.map
     )
 
-    id_sample_assemblers.join(
+    ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES_CHIMERIC.out.versions)
+
+    assembler_contigs.join(
         SEQKIT_GREP.out.filter
     ).join(
         SEQKIT_SEQ.out.fastx
@@ -359,6 +385,8 @@ workflow ASSEMBLEREVAL {
     EXTRACTIDS(
         contigs_filtered
     )
+
+    ch_versions = ch_versions.mix(EXTRACTIDS.out.versions)
 
     EXTRACTIDS.out.contig_ids.join(
         EXTRACTMAPPEDVALUES.out.values
@@ -382,6 +410,8 @@ workflow ASSEMBLEREVAL {
         combined_results
     )
 
+    ch_versions = ch_versions.mix(GATHERRESULTS.out.versions)
+
     GATHERRESULTS.out.scores.map {
         [it[1]]
     }.collect()
@@ -393,13 +423,15 @@ workflow ASSEMBLEREVAL {
         all_scores
     )
 
+    ch_versions = ch_versions.mix(MERGEDATAFRAMESMAPPING.out.versions)
+
     MERGEDATAFRAMESMAPPING.out.merged_dfs.combine(
-        GENERATEBLOCKS.out.blocks_tsv.map {
+        blocks_tsv_ch.map {
             it[1]
         }
     )
     .combine(
-        IDENTIFYCHIMERICBLOCKS.out.chim_blocks_tsv.map {
+        overlap_blocks_tsv_ch.map {
             it[1]
         }
     ).set { all_scores_with_block }
@@ -407,27 +439,18 @@ workflow ASSEMBLEREVAL {
     CALCULATEFINALSCORES(
         all_scores_with_block
     )
+
+    ch_versions = ch_versions.mix(CALCULATEFINALSCORES.out.versions)
     
     CALCULATEREFERENCEINFO(
         reference_cds_val,
-        GENERATEBLOCKS.out.blocks_tsv,
-        IDENTIFYCHIMERICBLOCKS.out.chim_blocks_tsv
+        blocks_tsv_ch,
+        overlap_blocks_tsv_ch
     )
 
-    Channel.of(["id": prefix + "_all_contigs"]).combine(
-        GATHERRESULTS.out.all_contig_lengths_summary.map {
-                it[1]
-        }
-        .collect()
-    )
-    .concat(
-        Channel.of(["id": prefix + "_unmapped_single"]).combine(
-            GATHERRESULTS.out.unmapped_contig_lengths_single_summary.map {
-                it[1]
-            }
-            .collect()
-        )
-    )
+    ch_versions = ch_versions.mix(CALCULATEREFERENCEINFO.out.versions)
+
+    Channel.of(["id": prefix + "_all_contigs"])
     .concat(
         Channel.of(["id": prefix + "_unmapped_multi"]).combine(
             GATHERRESULTS.out.unmapped_contig_lengths_multi_summary.map {
@@ -493,258 +516,41 @@ workflow ASSEMBLEREVAL {
     MAKEHISTOGRAMS(
         contig_lengths
     )
+
+    ch_versions = ch_versions.mix(MAKEHISTOGRAMS.out.versions)
+
+    SORTDATAFRAME(
+        CALCULATEFINALSCORES.out.final_scores,
+        Channel.of(1)
+    )
+
+    ch_versions = ch_versions.mix(SORTDATAFRAME.out.versions)
     
+    DGEEVAL(
+        assembler_contigs,
+        EXTRACTMAPPEDIDS.out.mapped_ids,
+        reads,
+        gene_summary_prefix,
+        MINIMAP2FILTER.out.map,
+        ch_versions
+    )
     /*
-
-    BOWTIE2_BUILD(
-        id_sample_assemblers
-    )
-
-    reads
-    .combine(
-        BOWTIE2_BUILD.out.index
-    )
-    .combine(Channel.of(true))
-    .combine(Channel.of(false))
-    .multiMap { it ->
-        reads: tuple(
-             [
-                "id"           : it[0]["id"] + "_" + it[2]["id"],
-                "single_end"   : it[0]["single_end"],
-                "read_id"      : it[0]["id"],
-                "assembler_id" : it[2]["id"]
-            ],
-            it[1]
-        )
-        index: tuple(it[2], it[3])
-        save_unaligned: it[4]
-        sort_bam: it[5]
-    }.set { reads_index_ch }
-
-    BOWTIE2_ALIGN(
-        reads_index_ch.reads,
-        reads_index_ch.index,
-        reads_index_ch.save_unaligned,
-        reads_index_ch.sort_bam
-    )
-
-    BEDTOOLS_BAMTOBED(
-        BOWTIE2_ALIGN.out.aligned
-    )
-
-    //TODO call the script and cat the bed files
-
-    BEDTOOLS_BAMTOBED.out.bed.combine(
-        BOWTIE2_ALIGN.out.log, by: 0
-    ).combine(
-        gene_summary
-    ).multiMap { it ->
-        bed: tuple(it[0], it[1])
-        gene_summary: tuple([:], it[3])
-        log: tuple(it[0], it[2])
-    }.set{ bed_gene_summary }
-
-    SCRIPT_MAPPING_STATS(
-        bed_gene_summary.bed,
-        bed_gene_summary.gene_summary,
-        bed_gene_summary.log
-    )
-
-    BEDTOOLS_BAMTOBED.out.bed.map {
-        meta = ["id": it[0]["assembler_id"]]
-        [meta, it[1]]
-    }.groupTuple()
-    .combine(
-        gene_summary
-    ).multiMap { it ->
-        bed: tuple(it[0], it[1])
-        gene_summary: tuple([:], it[2])
-    }.set{ bed_gene_summary }
-
-
-    ASSEMBLYREADSTATS(
-        bed_gene_summary.bed,
-        bed_gene_summary.gene_summary
-    )
-
-    SCRIPT_MAPPING_STATS.out.logs.map {
-        meta = ["id": it[0]["assembler_id"]]
-        [meta, it[1]]
-    }.groupTuple()
-    .set{ logs }
-
-    MERGEMAPPINGLOGS (
-        logs
-    )
-
-    MERGEMAPPINGLOGS.out.log_mean.map {
-        meta = ["id": "all_assembler"]
-        [meta, it[1]]
-    }.groupTuple()
-    .set { all_logs }
-
-    MERGEALLLOGS (
-        all_logs
-    )
-
-    SUMMARIZEMAPPINGSTATS(
-        ASSEMBLYREADSTATS.out.counts
+    REFEVAL(
+        reference_cds_val,
+        reads,
+        BOWTIE2_ALIGN_REFERENCE.out.aligned
     )
     */
 
-    /*
-    SUMMARIZEMAPPINGSTATS.out.mapping_stats.map {
-        [it[1]]
-    }.collect()
-    .map {
-        [["id": "all_assembler_mapping_stats"], it[0]]
-    }. set { all_mapping_stats }
+    SORTDATAFRAME.out.dataframe.combine(
+        DGEEVAL.out.eval
+    ).map {
+        [it[0], [it[1], it[3]]]
+    }.set { all_scores_dge }
 
-    SUMMARIZEMAPPINGSTATS.out.contig_gene_stats.map {
-        [it[1]]
-    }.collect()
-    .map {
-        [["id": "all_assembler_contig_gene_stats"], it[0]]
-    }. set { contig_gene_stats }
-
-    MERGEDATAFRAMESMAPPING(
-        all_mapping_stats
+    MERGEDRESULTS(
+        all_scores_dge
     )
-
-    MERGEDATAFRAMECONTIG(
-        contig_gene_stats
-    )
-    */
-
-    
-
-    /*
-    ass_contigs = sample_assemblers.map {
-        sample_id, assembler ->
-        contigs = assembler.values()
-        [sample_id, contigs]
-    }
-
-
-    renamed_contigs = RENAMECONTIGS(
-        ass_contigs
-    )
-    .flatten()
-    .map {
-        contig ->
-        def assembler = contig.getName().split("__")[1].minus("_contigs.fa")
-        [["id": assembler], contig]
-    }
-    .groupTuple()
-
-    QUAST_ASSEMBLER (
-        renamed_contigs,
-        [[:],[]],
-        [[:],[]]
-    )
-
-    ASSEMLYLENGTHVISUALIZE_ASSEMBLY_CONTIG(renamed_contigs)
-
-    QUAST_SAMPLE (
-        ass_contigs,
-        [[:],[]],
-        [[:],[]]
-    )
-
-    SAMPLELENGTHVISUALIZE_ASSEMBLY_CONTIG(ass_contigs)
-
-    all_contigs = Channel.of(["id":"all_assemblies"])
-    .concat(renamed_contigs
-        .map {
-            it[1]
-        }.collect()
-    )
-    .toList()
-
-    QUAST (
-        all_contigs,
-        [[:],[]],
-        [[:],[]]
-    )
-
-    contigs_per_sample_and_assembler = sample_assemblers
-    .map {
-        sample, assemblers ->
-        def list = []
-        sample["single_end"] = false
-        for (assembler in assemblers.keySet()) {
-            def sampleCopy = sample.clone()
-            sampleCopy["assembler"] = assembler
-            list.add([sampleCopy, assemblers[assembler]])
-        }
-        [list]
-    }
-    .flatten()
-    .collate(2)
-
-    SALMON_INDEX(
-        contigs_per_sample_and_assembler
-    )
-
-    index_with_assemblername = SALMON_INDEX.out.index
-        .map {
-            meta, index ->
-            meta_copy = meta.clone()
-            ass_copy = meta.clone()
-            assembler = ass_copy["assembler"]
-            meta_copy.remove("assembler")
-            meta_copy.remove("sample")
-            [meta_copy, index, assembler]
-        }
-
-    reads_and_contigs_per_sample_and_assembler = reads.map { it ->
-        def id = it[0]
-        id_copy = id.clone()
-        id_copy["id"] = id_copy["id"].replace("_T1", "")
-        [id_copy, it[1]]
-    }
-
-    reads_combined = reads_and_contigs_per_sample_and_assembler//.view()
-        .combine(index_with_assemblername, by:0)
-        .map {
-            meta, reads, contigs, assembler ->
-            meta_copy = meta.clone()
-            meta_copy["sample"] = meta_copy["id"]
-            meta_copy["assembler"] = assembler
-            meta_copy["id"] = meta_copy["id"].plus(":").plus(assembler)
-            [meta_copy, reads, contigs]
-        }
-
-
-    SALMON_QUANT (
-        reads_combined
-    )
-
-    ch_read_counts_grouped_by_sample = SALMON_QUANT.out.results.map {
-        meta, results ->
-        meta_copy = meta.clone()
-        meta_copy.remove("assembler")
-        meta_copy["id"] = meta["sample"]
-        meta_copy.remove("sample")
-        [meta_copy, results]
-    }.groupTuple()
-
-    ch_read_counts_grouped_by_sample
-
-    MULTICOVERAGEVISUALISER_ASSEMBLY_COUNTS(ch_read_counts_grouped_by_sample)
-
-    ch_versions = ch_versions.mix(QUAST_SAMPLE.out.versions)
-    ch_versions = ch_versions.mix(SALMON_INDEX.out.versions)
-
-    //COVERAGEVISUALIZE_ASSEMBLY_COUNTS(
-    //    SALMON_QUANT.out.results
-    //)
-
-
-    CUSTOM_DUMPSOFTWAREVERSIONS (
-        ch_versions.unique().collectFile(name: 'collated_versions.yml')
-    )
-    */
 }
 
 /*

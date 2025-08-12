@@ -12,6 +12,7 @@ process GENERATEBLOCKS {
     output:
     tuple val(meta), path("${prefix}.fa")       , emit: blocks
     tuple val(meta), path("${prefix}_blocks.tsv")   , emit: blocks_tsv
+    path  "versions.yml"                            , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -23,5 +24,12 @@ process GENERATEBLOCKS {
     """
     pip install biopython==1.83
     python /container/bin/generate_blocks.py ${merged_beds} ${reference} ${dup_seqs} ${prefix} > ${prefix}.fa
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+    python: "\$(python3 --version | sed 's/Python //')"
+    biopython: "\$(python3 -c 'import Bio; print(Bio.__version__)')"
+    pandas: "\$(python3 -c 'import pandas as pd; print(pd.__version__)')"
+    END_VERSIONS
     """
 }

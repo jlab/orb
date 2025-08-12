@@ -64,6 +64,11 @@
                         "branch": "master",
                         "git_sha": "60645c2b45e56579de0a0c89416805cae44c1f46",
                         "installed_by": ["modules"]
+                    },
+                    "subread/featurecounts": {
+                        "branch": "master",
+                        "git_sha": "81880787133db07d9b4c1febd152c090eb8325dc",
+                        "installed_by": ["modules"]
                     }
                 }
             }

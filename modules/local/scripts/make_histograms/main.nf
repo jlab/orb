@@ -11,6 +11,7 @@ process MAKEHISTOGRAMS {
     output:
     tuple val(meta), path("${prefix}_histograms.png")        , emit: hists
     tuple val(meta), path("${prefix}_log_histograms.png")    , emit: hists_log
+    path  "versions.yml"                                     , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
@@ -22,5 +23,12 @@ process MAKEHISTOGRAMS {
     """
     pip install matplotlib
     python /container/bin/make_histogramms.py ${prefix} ${dfs}
+
+    cat <<-END_VERSIONS > versions.yml
+    "${task.process}":
+    python: "\$(python3 --version | sed 's/Python //')"
+    matplotlib: "\$(python3 -c 'import matplotlib; print(matplotlib.__version__)')"
+    pandas: "\$(python3 -c 'import pandas as pd; print(pd.__version__)')"
+    END_VERSIONS
     """
 }
