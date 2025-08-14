@@ -7,90 +7,30 @@
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
 [![Launch on Nextflow Tower](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Nextflow%20Tower-%234256e7)](https://tower.nf/launch?pipeline=https://github.com/jlab/refbasedassemblereval)
 
-# refbasedassemblereval
+# ORB (Omics reference based benchmarking)
 
 ## Introduction
 
-**jlab/refbasedassemblereval** is a bioinformatics pipeline that ...
+**jlab/orb** is a bioinformatics pipeline that calculates performance evaluation scores for assembled sets of contigs. Using Marbel, a researcher is enabled to create an in silico dataset resembling the characteristics of the target environment and, using ORB, test which assembler to use for the analysis of their sample. The pipeline leverages minimap2, Bowtie2, Salmon, DESeq2, edgeR, Calour and custom scripts for the score calculation and includes orthologous groups and DE benchmarking.
 
-Naming suggestions:
+Recommended usage:
 
-BEAMED
+* Create an *in silico* dataset using [Marbel](https://anaconda.org/bioconda/marbel)
+* Assemble the datasets with a tool to benchmark
+* Run the pipeline
 
-Benchmarking for assembled metatranscriptomic  data
-
-(RED) BEAM:
-
-referenced-based data  benchmarking for assembled metatranscriptomic
-
-Bead
-Benchmarking for assembled data
-
-mtx-Bead
-
-metatranscriptomics benchmarking for assembled data
-
-(Meta-) Orb
-(Metatranscrip) Omics reference based benchmarking
-
-mt-orb
-
-mtxorb
-
-
-<!-- TODO nf-core: Fill in short bullet-pointed list of the default steps in the pipeline -->
-
-1. Read QC ([`FastQC`](https://www.bioinformatics.babraham.ac.uk/projects/fastqc/))
-2. Present QC for raw reads ([`MultiQC`](http://multiqc.info/))
-
-## Usage
-
-:::note
-If you are new to Nextflow and nf-core, please refer to [this page](https://nf-co.re/docs/usage/installation) on how
-to set-up Nextflow. Make sure to [test your setup](https://nf-co.re/docs/usage/introduction#how-to-run-a-pipeline)
-with `-profile test` before running the workflow on actual data.
-:::
-
-<!-- TODO nf-core: Describe the minimum required steps to execute the pipeline, e.g. how to prepare samplesheets.
-     Explain what rows and columns represent. For instance (please edit as appropriate):
-
-First, prepare a samplesheet with your input data that looks as follows:
-
-`samplesheet.csv`:
-
-```csv
-sample,fastq_1,fastq_2
-CONTROL_REP1,AEG588A1_S1_L002_R1_001.fastq.gz,AEG588A1_S1_L002_R2_001.fastq.gz
-```
-
-Each row represents a fastq file (single-end) or a pair of fastq files (paired end).
-
--->
-
-Now, you can run the pipeline using:
-
-<!-- TODO nf-core: update the following command to include all required parameters for a minimal example -->
+Fill the required parameters per run and adjust the example config files in `example/dataset.config` and `example/resources.config`
 
 ```bash
-nextflow run jlab/refbasedassemblereval \
-   -profile <docker/singularity/.../institute> \
-   --input samplesheet.csv \
-   --outdir <OUTDIR>
+nextflow run . \
+   -profile podman \
+   -c example/dataset.config \
+   -c example/resources.config
 ```
-
-:::warning
-Please provide pipeline parameters via the CLI or Nextflow `-params-file` option. Custom config files including those
-provided by the `-c` Nextflow option can be used to provide any configuration _**except for parameters**_;
-see [docs](https://nf-co.re/usage/configuration#custom-configuration-files).
-:::
 
 ## Credits
 
 jlab/refbasedassemblereval was originally written by Timo Wentong Lin.
-
-We thank the following people for their extensive assistance in the development of this pipeline:
-
-<!-- TODO nf-core: If applicable, make list of people who have also contributed -->
 
 ## Contributions and Support
 
@@ -98,15 +38,11 @@ If you would like to contribute to this pipeline, please see the [contributing g
 
 ## Citations
 
-<!-- TODO nf-core: Add citation for pipeline after first release. Uncomment lines below and update Zenodo doi and badge at the top of this file. -->
-
-<!-- If you use  jlab/refbasedassemblereval for your analysis, please cite it using the following doi: [10.5281/zenodo.XXXXXX](https://doi.org/10.5281/zenodo.XXXXXX) -->
-
 <!-- TODO nf-core: Add bibliography of tools and data used in your pipeline -->
 
 An extensive list of references for the tools used by the pipeline can be found in the [`CITATIONS.md`](CITATIONS.md) file.
 
-This pipeline uses code and infrastructure developed and maintained by the [nf-core](https://nf-co.re) community, reused here under the [MIT license](https://github.com/nf-core/tools/blob/master/LICENSE).
+This pipeline uses code and infrastructure developed and maintained by the [nf-core](https://nf-co.re) community, reused here under the [MIT license](https://github.com/nf-core/tools/blob/master/LICENSE). Some code from the nf-core community was modified and is posted alongside own code in `modules/local`.
 
 > **The nf-core framework for community-curated bioinformatics pipelines.**
 >

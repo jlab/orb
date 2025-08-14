@@ -2,7 +2,6 @@ include { BOWTIE2_BUILD                } from '../../modules/nf-core/bowtie2/bui
 include { BOWTIE2_ALIGN                } from '../../modules/nf-core/bowtie2/align/main'
 include { SEQKIT_GREP as SEQKIT_GREP2  } from '../../modules/nf-core/seqkit/grep/main'
 include { GENERATEFAKEGTF              } from '../../modules/local/scripts/generatefakegtf/main'
-include { SUBREAD_FEATURECOUNTS        } from '../../modules/nf-core/subread/featurecounts/main'
 include { EDGER; EDGER as REFEDGER     } from '../../modules/local/dge/edger/main'
 include { DESEQ2; DESEQ2 as REFDESEQ2  } from '../../modules/local/dge/deseq2/main'
 include { SALMON_INDEX                 } from '../../modules/local/salmon/index/main'
