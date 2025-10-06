@@ -11,6 +11,8 @@
 
 ## Introduction
 
+![ORB logo](./resources/logos/orb_logo.png)
+
 **jlab/orb** is a bioinformatics pipeline that calculates performance evaluation scores for assembled sets of contigs. Using Marbel, a researcher is enabled to create an in silico dataset resembling the characteristics of the target environment and, using ORB, test which assembler to use for the analysis of their sample. The pipeline leverages minimap2, Bowtie2, Salmon, DESeq2, edgeR, Calour and custom scripts for the score calculation and includes orthologous groups and DE benchmarking.
 
 Recommended usage:
