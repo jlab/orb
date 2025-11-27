@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 library(DESeq2)
 
 run_deseq <- function(dds) {

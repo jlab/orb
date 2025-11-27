@@ -19,7 +19,7 @@ process MINIMAP2FILTER {
     def args = task.ext.args ?: ''
 
     """
-    python /container/bin/minimap2_filter.py ${mapping}
+    minimap2_filter.py ${mapping}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

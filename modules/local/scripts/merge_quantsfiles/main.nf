@@ -20,7 +20,7 @@ process MERGEQUANTSFFILES {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python /container/bin/merge_quant_files.py ${quant_files} > ${prefix}.tsv
+    merge_quant_files.py ${quant_files} > ${prefix}.tsv
 
 
     cat <<-END_VERSIONS > versions.yml

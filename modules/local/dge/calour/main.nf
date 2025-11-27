@@ -23,6 +23,6 @@ process CALOUR {
 
     """
     python3 -c "import calour; print(f'Calour: \"{calour.__version__}\"')" > versions.yml
-    python3 /container/bin/calour_calculation.py ${count_matrix} ${min_abundance} ${prefix} ${args}
+    calour_calculation.py ${count_matrix} ${min_abundance} ${prefix} ${args}
     """
 }

@@ -21,7 +21,7 @@ process SORTDATAFRAME {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python /container/bin/sort_dataframe.py ${df} ${axis} ${prefix}
+    sort_dataframe.py ${df} ${axis} ${prefix}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

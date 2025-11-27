@@ -26,7 +26,7 @@ process CALCULATEREFERENCEINFO {
     
     """
     pip install biopython==1.83
-    python /container/bin/calculate_reference_info.py  ${blocks_df} ${chim_blocks_df} ${ref_fasta} ${prefix}
+    calculate_reference_info.py  ${blocks_df} ${chim_blocks_df} ${ref_fasta} ${prefix}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

@@ -19,7 +19,7 @@ process CALCULATEDGECONFUSION {
     
     """
     pip install scikit-learn
-    python /container/bin/calculate_dge_confusion.py ${dge_ass} ${mapping} ${dge_ref} ${prefix} ${args}
+    calculate_dge_confusion.py ${dge_ass} ${mapping} ${dge_ref} ${prefix} ${args}
 
     
     """

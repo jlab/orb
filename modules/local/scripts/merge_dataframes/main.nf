@@ -20,7 +20,7 @@ process MERGEDATAFRAMES {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python /container/bin/merge_dataframes.py ${dfs} > ${prefix}.tsv
+    merge_dataframes.py ${dfs} > ${prefix}.tsv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

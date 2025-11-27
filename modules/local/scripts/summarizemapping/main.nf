@@ -20,6 +20,6 @@ process SUMMARIZEMAPPINGSTATS {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python /container/bin/summarize_mapping_stats.py ${mapping_stats} ${prefix}
+    summarize_mapping_stats.py ${mapping_stats} ${prefix}
     """
 }

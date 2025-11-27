@@ -20,6 +20,6 @@ process MERGEMAPPINGLOGS {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python /container/bin/merge_bowtie2_logs.py ${logs} ${prefix}
+    merge_bowtie2_logs.py ${logs} ${prefix}
     """
 }

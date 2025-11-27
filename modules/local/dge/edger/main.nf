@@ -22,6 +22,6 @@ process EDGER {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    Rscript /container/bin/edgeR_calculation.R ${count_matrix} ${prefix} ${args}
+    edgeR_calculation.R ${count_matrix} ${prefix} ${args}
     """
 }

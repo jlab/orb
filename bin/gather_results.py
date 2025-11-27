@@ -2,16 +2,17 @@ import pandas as pd
 import sys
 import re
 from Bio import SeqIO
+import os
 
 all_contigs_ids = sys.argv[1]
 mapped_ids = sys.argv[2]
 chimeric_mapped_ids = sys.argv[3]
 length_filtered_ids = sys.argv[4]
 assembler_mapping = sys.argv[5]
-dup_ids_group = sys.argv[6]
-gene_summary = sys.argv[7]
-contig_fasta = sys.argv[8]
-prefix = sys.argv[9]
+gene_summary = sys.argv[6]
+contig_fasta = sys.argv[7]
+prefix = sys.argv[8]
+
 
 all_contigs_ids = pd.read_csv(all_contigs_ids, header=None).iloc[:, 0]
 len_all_contigs_ids = len(all_contigs_ids)
@@ -43,17 +44,6 @@ if len(chimeric_mapped_ids_double_mapped) > 0:
 
 assembler_mapping = pd.read_csv(assembler_mapping, sep="\t", header=None)
 
-
-duplicated_ids_dict = {}
-for line in open(dup_ids_group):
-    line = line.strip()
-    ids = line.split("\t")[1]
-    ids_list = ids.split(", ")
-    dedupped_id = ids_list[0]
-    for id in ids_list[1:]:
-        duplicated_ids_dict[id] = dedupped_id
-
-
 all_contigs_ids = all_contigs_ids[~all_contigs_ids.isin(pd.concat([mapped_ids, chimeric_mapped_ids, length_filtered_ids]))]
 
 unmapped_contigs = all_contigs_ids[~all_contigs_ids.isin(assembler_mapping[0].unique())]
@@ -61,7 +51,6 @@ unmapped_contigs = all_contigs_ids[~all_contigs_ids.isin(assembler_mapping[0].un
 assembler_mapping = assembler_mapping[assembler_mapping[0].isin(all_contigs_ids)]
 
 assembler_mapping["origin_gene"] = assembler_mapping[3].apply(lambda x:   re.sub(r"(.*?_.*?)_.*", r"\1", x))
-assembler_mapping["origin_gene"] = assembler_mapping["origin_gene"].apply(lambda x: duplicated_ids_dict.get(x, x))
 
 assembler_mapping["origin_orthogroup"] = assembler_mapping["origin_gene"].apply(lambda x: gene_og_dict.get(x))
 

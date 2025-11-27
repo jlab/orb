@@ -20,7 +20,7 @@ process CALCULATEFINALSCORES {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    python /container/bin/calculate_ratios.py  ${merged_scores} ${blocks_df} ${chim_blocks_df} > ${prefix}_orb_scores.tsv
+    calculate_ratios.py  ${merged_scores} ${blocks_df} ${chim_blocks_df} > ${prefix}_orb_scores.tsv
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

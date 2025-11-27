@@ -22,6 +22,6 @@ process ASSEMBLYREADSTATS {
 
     """
     cat ${mapping} > ${prefix}_merged.tsv
-    python /container/bin/count_genes_and_ogs_per_contig.py ${summary} ${prefix}_merged.tsv > ${prefix}.tsv
+    count_genes_and_ogs_per_contig.py ${summary} ${prefix}_merged.tsv > ${prefix}.tsv
     """
 }

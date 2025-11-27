@@ -22,6 +22,6 @@ process DESEQ2 {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    Rscript /container/bin/deseq2_calculation.R ${count_matrix} ${prefix} ${args}
+    deseq2_calculation.R ${count_matrix} ${prefix} ${args}
     """
 }

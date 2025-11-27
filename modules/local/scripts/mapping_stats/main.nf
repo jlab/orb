@@ -22,7 +22,7 @@ process SCRIPT_MAPPING_STATS {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python /container/bin/count_genes_and_ogs_per_contig.py ${summary} ${mapping} > ${prefix}.tsv
-    python /container/bin/parse_bowtie2_logs.py ${logs} ${prefix} > ${prefix}_log.tsv
+    count_genes_and_ogs_per_contig.py ${summary} ${mapping} > ${prefix}.tsv
+    parse_bowtie2_logs.py ${logs} ${prefix} > ${prefix}_log.tsv
     """
 }

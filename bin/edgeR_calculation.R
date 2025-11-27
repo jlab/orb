@@ -1,3 +1,5 @@
+#!/usr/bin/env Rscript
+
 library(edgeR)
 
 args <- commandArgs(trailingOnly = TRUE)

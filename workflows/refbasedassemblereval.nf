@@ -74,11 +74,11 @@ MERGEDATAFRAMES as MERGEDATAFRAMESSUMMARIES } from '../modules/local/scripts/mer
 include { GENERATEBLOCKS              } from '../modules/local/scripts/generate_blocks/main'
 include { STACKDATAFRAMES; STACKDATAFRAMES as STACKDATAFRAMES_REFERENCE } from '../modules/local/scripts/stack_dataframes/main'
 include { SEQKIT_RMDUP                } from '../modules/nf-core/seqkit/rmdup/main'
-include { IDENTIFYCHIMERICBLOCKS      } from '../modules/local/scripts/identify_chimeric_blocks/main'
 include { EXTRACTMAPPEDIDS            } from '../modules/local/scripts/extract_mapped_ids/main'
 include { SEQKIT_SEQ                  } from '../modules/nf-core/seqkit/seq/main'
 include { SEQKIT_GREP                 } from '../modules/nf-core/seqkit/grep/main'
 include { GATHERRESULTS               } from '../modules/local/scripts/gather_results/main'
+include { CATEGORIZECONTIGS           } from '../modules/local/scripts/categorize_contigs/main'
 include { EXTRACTMAPPEDVALUES; EXTRACTMAPPEDVALUES as EXTRACTMAPPEDVALUES_CHIMERIC } from '../modules/local/jq/extract_values/main'
 include { EXTRACTIDS                  } from '../modules/local/scripts/extract_ids/main'
 include { CALCULATEFINALSCORES        } from '../modules/local/scripts/calculate_final_scores/main'
@@ -160,7 +160,7 @@ workflow ASSEMBLEREVAL {
         blocks: tuple(it[2], it[3])
     }.set{ contigs_blocks }
 
-    MINIMAP2_MAP(
+    MINIMAP2_MAP (
         contigs_blocks.contigs,
         contigs_blocks.blocks
     )
@@ -324,10 +324,6 @@ workflow ASSEMBLEREVAL {
     ).join(
         STACKDATAFRAMES.out.stacked_dfs
     ).combine(
-        SEQKIT_RMDUP.out.dup_seqs.map {
-            it[1]
-        }
-    ).combine(
         Channel.fromPath(params.gene_summary)
     ).join(
         assembler_contigs
@@ -338,6 +334,12 @@ workflow ASSEMBLEREVAL {
     )
 
     ch_versions = ch_versions.mix(GATHERRESULTS.out.versions)
+
+    CATEGORIZECONTIGS(
+        combined_results
+    )
+
+    ch_versions = ch_versions.mix(CATEGORIZECONTIGS.out.versions)
 
     GATHERRESULTS.out.scores.map {
         [it[1]]
@@ -461,13 +463,36 @@ workflow ASSEMBLEREVAL {
         MINIMAP2FILTER.out.map,
         ch_versions
     )
-    /*
+
+    BOWTIE2_BUILD_REFERENCE(
+        reference_cds_val
+    )
+
+    reads
+    .combine(
+        BOWTIE2_BUILD_REFERENCE.out.index
+    )
+    .combine(Channel.of(true))
+    .combine(Channel.of(false))
+    .multiMap { it -> 
+        reads: tuple(it[0], it[1])
+        index: tuple(it[2], it[3])
+        save_unaligned: it[4]
+        sort_bam: it[5]
+    }.set {reads_ref_ch}
+
+    BOWTIE2_ALIGN_REFERENCE(
+        reads_ref_ch.reads,
+        reads_ref_ch.index,
+        reads_ref_ch.save_unaligned,
+        reads_ref_ch.sort_bam
+    )
+    
     REFEVAL(
         reference_cds_val,
         reads,
         BOWTIE2_ALIGN_REFERENCE.out.aligned
     )
-    */
 
     SORTDATAFRAME.out.dataframe.combine(
         DGEEVAL.out.eval
@@ -495,65 +520,6 @@ workflow.onComplete {
     if (params.hook_url) {
         NfcoreTemplate.IM_notification(workflow, params, summary_params, projectDir, log)
     }
-}
-
-process RENAMECONTIGS {
-    input:
-    tuple val(meta), path(contigs)
-
-    output:
-    path "${sample}_*.fa"
-
-    script:
-
-    sample = meta.id
-    """
-    for contig in ${contigs}; do
-        cp \$contig ${sample}__\${contig}
-    done
-    """
-}
-
-process COVERAGEVISUALIZE_ASSEMBLY_COUNTS {
-    input:
-    tuple val(meta), path(counts)
-
-    output:
-    path "${meta.id}_counts_histogram.png"
-
-    script:
-    //TODO: find out how to make the Rscript path relative
-    """
-    contig_visualiser.R ${counts}/quant.sf ${meta.id}_counts_histogram.png
-    """
-}
-
-process MULTICOVERAGEVISUALISER_ASSEMBLY_COUNTS {
-    input:
-    tuple val(meta), path(counts)
-
-    output:
-    path "*_counts_histogram.png"
-
-    script:
-    //TODO: find out how to make the Rscript path relative
-
-    def quant_files = counts.toList().collect { it.plus("/quant.sf")}
-    def quant_names = counts.toList().collect { it.toString().split(":").last().split("_")[0]}
-
-    def renameCommands = quant_files.indices.collect { i ->
-        def file = quant_files[i]
-        def name = quant_names[i]
-        "cp ${file} ${name}"
-    }.join("\n")
-
-    def input_file_names = quant_names.join(" ")
-
-    """
-    ${renameCommands}
-
-    contig_coverage_visualiser.R ${input_file_names} ${meta.id}_counts_histogram.png
-    """
 }
 
 

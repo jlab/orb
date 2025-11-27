@@ -22,7 +22,7 @@ process MAKEHISTOGRAMS {
 
     """
     pip install matplotlib
-    python /container/bin/make_histogramms.py ${prefix} ${dfs}
+    make_histogramms.py ${prefix} ${dfs}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

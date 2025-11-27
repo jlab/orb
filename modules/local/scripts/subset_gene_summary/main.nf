@@ -22,7 +22,7 @@ process SUBSETGENESUMMARY {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python /container/bin/subset_gene_summary.py ${df} ${prefix}
+    subset_gene_summary.py ${df} ${prefix}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

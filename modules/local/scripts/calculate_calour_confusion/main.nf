@@ -19,6 +19,6 @@ process CALCULATECALOURCONFUSION {
     
     """
     pip install scikit-learn
-    python /container/bin/calculate_calour_confusion.py ${dge_ass} ${mapping} ${dge_ref} ${prefix}
+    calculate_calour_confusion.py ${dge_ass} ${mapping} ${dge_ref} ${prefix}
     """
 }

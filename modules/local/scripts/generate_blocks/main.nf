@@ -23,7 +23,7 @@ process GENERATEBLOCKS {
 
     """
     pip install biopython==1.83
-    python /container/bin/generate_blocks.py ${merged_beds} ${reference} ${dup_seqs} ${prefix} > ${prefix}.fa
+    generate_blocks.py ${merged_beds} ${reference} ${dup_seqs} ${prefix} > ${prefix}.fa
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":
