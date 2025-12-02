@@ -1,0 +1,62 @@
+# environments that are present as directories, but shall not be included into figures
+skip_environments:
+  - 'fixed_insert'
+
+contig_classes:
+  mapped_contigs:
+    class: good
+    color: 'darkgreen'
+    label: 'recovered'
+  chimeric_mapped_contigs:
+    class: good
+    color: 'green'
+    label: 'overlapping annotation'
+  multi_mapped_contigs_single_og:
+    class: good
+    color: 'lightgreen'
+    label: 'orthologous recovered'
+  missed:
+    class: neutral
+    color: '#dddddd'
+    label: 'missed blocks'
+  unmapped_contigs:
+    class: bad
+    color: '#B84303'
+    label: 'hallucinated'
+  multi_mapped_contigs_multi_og:
+    class: bad
+    color: '#F00F18'
+    label: 'chimera'
+  single_mapped_contigs:
+    class: bad
+    color: '#FECB47'
+    label: 'incomplete'
+  length_filtered_contigs:
+    class: bad
+    color: '#FEEAA2'
+    label: 'length filtered'
+
+# rename ugly technical names with pretty tool / environment labels
+labels:
+  assemblers:
+    dbg: 'dbg'
+    ibda_tran: 'IDBA-tran'
+    idba_mt: 'IDBA-MT'
+    idba_mt_fasta: 'IDBA-MT'
+    megahit: 'MEGAHIT'
+    oases: 'Oases'
+    rnaspades: 'rnaSPAdes'
+    soap-denovo-trans: 'SOAPdenovo-Trans'
+    soap_denovo_trans: 'SOAPdenovo-Trans'
+    transabyss: 'Trans-ABySS'
+    transabyss_transabyss: 'Trans-ABySS'
+    trinity: 'Trinity'
+
+  environments:
+    oak: 'oak' 
+    seawater: 'seawater' 
+    healthy_gut: 'healthy gut' 
+    moss: 'moss'
+    freshwater: 'freshwater'
+    diseased_gut: 'diseased gut'
+
