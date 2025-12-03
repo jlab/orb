@@ -4,7 +4,11 @@ import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from compile_data import get_environments, getdata_recovery
+import matplotlib.colors as mcolors
+from matplotlib import patches as mpatches
+import colorsys
+import seaborn as sns
+from compile_data import get_environments, getdata_recovery, getdata_gene_recovery
 
 
 def plot_recovery(fp_orb_basedir, settings, num_columns:int=3):
@@ -85,3 +89,43 @@ def plot_recovery(fp_orb_basedir, settings, num_columns:int=3):
 #    settings = yaml.safe_load(f)
 # # 2) then call plot_recovery with the filepath to Orb's base dir and the loaded settings
 # _ = plot_recovery('/vol/jlab/tlin/all_project/nf_results/orb', settings)
+
+def _color_desaturate(color, saturation=0.75):
+    h, s, v = colorsys.rgb_to_hsv(*mcolors.to_rgb(color))
+    return colorsys.hsv_to_rgb(h, s, v*saturation)
+
+def plot_recovery(fp_orb_basedir, settings, num_columns:int=3):
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+    # load data
+    recovered_genes = getdata_gene_recovery(fp_orb_basedir, settings)
+
+    fig, axes = plt.subplots(
+        int(np.ceil(len(environments) / num_columns)), 
+        num_columns, figsize=(num_columns * 5, np.ceil(len(environments) / num_columns) * 3),
+        gridspec_kw={"wspace": 0.6, "hspace": 0.4}
+    )
+
+    palette = {'core': 'gold', 'shared': 'cyan', 'total': 'lightgray'}
+    assemblers = [x for x in recovered_genes.index if x not in palette.keys()]
+    palette.update({assembler: sns.color_palette()[0] for assembler in assemblers})
+
+    for i, environment in enumerate(environments):
+        ax = axes[i // num_columns, i % num_columns]
+
+        order = list(recovered_genes.loc[assemblers, environment].sort_values(ascending=False).index) + ['core', 'shared']
+        sns.barplot(data=recovered_genes[environment].to_frame().reset_index(), orient='h', y='assembler', x=environment, ax=ax, palette=palette, order=order)
+        ax.axvline(x=recovered_genes.loc['core', environment], color=palette['core'])
+        ax.set_ylabel("")
+        ax.set_xlabel("number recovered genes")
+        ax.set_title(settings['labels']['environments'].get(environment, environment))
+        ax.set_xscale('log')
+        
+        if i+1 == len(environments):
+            ax.legend(handles=[
+                mpatches.Patch(color=palette[assemblers[0]], label='exclusively recovered'),
+                mpatches.Patch(color=_color_desaturate(palette['core'], 0.75), label='recovered by all'),
+                mpatches.Patch(color=_color_desaturate(palette['shared'], 0.75), label='recovered by some')],
+                    bbox_to_anchor=(-0.1, -0.25), ncols=3)
+            
+    return fig

@@ -69,3 +69,68 @@ def getdata_recovery(fp_orb_basedir:str, settings) -> pd.DataFrame:
         data.append(orb)
     return pd.concat(data)
     
+def getdata_gene_recovery(fp_orb_basedir:str, settings) -> pd.DataFrame:
+    mapping_col_names = [
+                "Query sequence name",
+                "Query sequence length",
+                "Query start coordinate",
+                "Query end coordinate",
+                "same strand",
+                "block_id", #"Target sequence name",
+                "Target sequence length",
+                "Target start coordinate on the original strand",
+                "Target end coordinate on the original strand",
+                "Number of matching bases in the mapping",
+                "Number bases, including gaps, in the mapping",
+                "Mapping quality", "1", "2", "3", "4", "5", "6"]
+
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
+    recovered_contigs = dict()
+    for environment in environments:
+        recovered_contigs[environment] = dict()
+        for fp_category in glob(join(fp_orb_basedir, environment, 'categorizecontigs', '*_contigs_categorised.tsv')):
+            assembler = basename(fp_category).split('_contigs_categorised.tsv')[0]
+            
+            contig_classes = pd.read_csv(fp_category, sep="\t", index_col=0)
+            contig_classes.index = list(map(str, contig_classes.index))
+
+            contig_mappings = pd.read_csv(
+                join(fp_orb_basedir, environment, 'minimap2', '%s_mapping.tsv' % assembler), sep="\t", header=None, names=mapping_col_names, dtype={'Query sequence name': str}
+                    ).sort_values(by=['Mapping quality', 'Number of matching bases in the mapping'], ascending=[False, False]  # sort hits by mapping quality AND number of involved matching bases
+                        ).groupby(['Query sequence name']).head(1  # for every contig: pick only best hit
+                            ).groupby('block_id').head(1).merge(  # for every block: pick only best hit
+                                contig_classes, left_on=['Query sequence name'], right_index=True, how='left')  # merge Timo's contig categorization
+            # add a binary classification: good and missed ...
+            contig_mappings['class'] = contig_mappings['category'].apply(lambda x: 'good' if x in [col for col, c in settings['contig_classes'].items() if c['class'] == 'good'] else 'missed')
+            # ... and keep only those in class "good"
+            contig_mappings = contig_mappings[contig_mappings['class'] ==  'good']
+            
+            # derive gene name from block_id
+            contig_mappings['gene_name'] = contig_mappings['block_id'].apply(lambda x: x.split('_block')[0])        
+            
+            recovered_contigs[environment][assembler] = contig_mappings
+    
+    recovered_genes = []
+    for environment in environments:
+        features = pd.concat([pd.Series(index=list(v['gene_name'].unique()), data=True, name=k).rename_axis('gene_name')
+                            for k, v in recovered_contigs[environment].items()], axis=1).fillna(False)
+        del features['idba_mt']  # as this is too close to idba_tran
+        # number genes found by only one assembler
+        upset = features[features.sum(axis=1) == 1].unstack().unstack().sum(axis=1)
+        # number genes found by all assemblers
+        upset.loc['core'] = features[features.sum(axis=1) == len(features.columns)].shape[0]
+        # number genes found by two or more, but not all assemblers
+        upset.loc['shared'] = features[(features.sum(axis=1) < len(features.columns)) & (features.sum(axis=1) > 1)].shape[0]
+        # total number genes
+        upset.loc['total'] = features.shape[0]
+        upset.name = environment
+        recovered_genes.append(upset)
+    recovered_genes = pd.concat(recovered_genes, axis=1)
+    recovered_genes.index.name = 'assembler'
+
+    # pretty assembler names
+    recovered_genes = recovered_genes.rename(index=settings['labels']['assemblers'])
+
+    return recovered_genes
