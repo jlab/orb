@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib.colors as mcolors
 from matplotlib import patches as mpatches
-import matplotlib.colors as mcolors
 import colorsys
 import seaborn as sns
 from compile_data import get_environments, getdata_recovery, getdata_gene_recovery

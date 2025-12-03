@@ -117,7 +117,7 @@ def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False) -
         features = pd.concat([pd.Series(index=list(v['gene_name'].unique()), data=True, name=k).rename_axis('gene_name')
                             for k, v in recovered_contigs[environment].items()], axis=1).fillna(False)
         if full_gene_table:
-            recovered_genes[environment] = features.rename(index=settings['labels']['assemblers'])
+            recovered_genes.append((environment,  features.rename(index=settings['labels']['assemblers'])))
             continue
 
         del features['idba_mt']  # as this is too close to idba_tran
@@ -132,7 +132,7 @@ def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False) -
         upset.name = environment
         recovered_genes.append(upset)
     if full_gene_table:
-        return recovered_genes
+        return {environment: feature_table for (environment, feature_table) in recovered_genes}
     recovered_genes = pd.concat(recovered_genes, axis=1)
     recovered_genes.index.name = 'assembler'
 
