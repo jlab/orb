@@ -49,13 +49,13 @@ def getdata_recovery(fp_orb_basedir:str, settings) -> pd.DataFrame:
     environments = get_environments(fp_orb_basedir, settings)
 
     data = []
-    for i, environment in enumerate(environments):
+    for environment in environments:
         # load orb data
         orb = pd.read_csv(join(fp_orb_basedir, environment, 'mergedresults', '%s_all_scores.tsv' % environment), sep="\t", index_col=0)
         # rename metrics to names used in publication
         orb = orb.rename(index={k: c['label'] for k, c in settings['contig_classes'].items()})
         # add information about missed blocks
-        trueBlocks = pd.read_csv(join(fp_orb_basedir, environment, 'mergedataframessummaries', '%s_all_contigs.tsv' % environment), sep="\t", index_col=0).loc['count', ['Blocks', 'Chimeric Blocks']].sum()
+        trueBlocks = pd.read_csv(join(fp_orb_basedir, environment, 'mergedataframessummaries', '%s_all_contigs.tsv' % environment), sep="\t", index_col=0).loc['count', ['Blocks']].sum()
         orb.loc['missed blocks', :] = trueBlocks - orb.loc[[c['label'] for _, c in settings['contig_classes'].items() if c['class'] == 'good'], :].sum()
         # select metrics for "recovery analysis"
         orb = orb.loc[[c['label'] for _, c in settings['contig_classes'].items()], :]
