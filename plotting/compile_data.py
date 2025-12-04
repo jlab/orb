@@ -1,5 +1,5 @@
 from glob import glob
-from os.path import join, basename
+from os.path import join, basename, relpath, sep
 import yaml
 import numpy as np
 import pandas as pd
@@ -150,3 +150,51 @@ def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False, v
     recovered_genes = recovered_genes.rename(index=settings['labels']['assemblers'])
 
     return recovered_genes
+
+def getdata_runtime_memory(fp_caviar_basedir:str, settings, verbose=True):
+    fields_to_collect = ['Maximum resident set size (kbytes): ', 'User time (seconds): ', 'System time (seconds): ']
+    data = []
+    for fp_time in tqdm(glob('%s/**/*_time_log.txt' % fp_caviar_basedir, recursive=True), disable=not verbose, desc='Compiling data for runtime/memory footprint plot'):
+        # derive environment and assembler from filenames
+        environment = relpath(fp_time, fp_caviar_basedir).split(sep)[0]
+        assembler = (basename(fp_time)[len(environment)+1:-1*len('_time_log.txt')])
+
+        # parse /usr/bin/time verbose output
+        with open(fp_time, 'r') as f:
+            for line in f.readlines():
+                for field in fields_to_collect:
+                    if field in line:
+                        value = float(line.split(field)[-1].strip())
+                        data.append((environment, assembler, field, value))
+    data = pd.DataFrame(data, columns=['environment', 'assembler', 'type', 'value'])
+
+    # combine user and system time
+    cmb_time = (data[data['type'] == 'User time (seconds): '].set_index(['environment', 'assembler'])['value'] + data[data['type'] == 'System time (seconds): '].set_index(['environment', 'assembler'])['value']).reset_index()
+    cmb_time['type'] = 'CPU time (seconds)'
+
+    timemem = pd.concat([data, cmb_time])
+    timemem = timemem[timemem['assembler'] != 'convert_to_fasta']  # this is a pre-processing for some of the assembler as they not always except fastQ.gz
+    
+    # combine runtime for oases, i.e. velveth + velvetg + oases
+    assembler = 'oases'
+    oases_combined = []
+    for field in fields_to_collect + ['CPU time (seconds)']:
+        fct_combine = np.sum
+        if field == 'Maximum resident set size (kbytes): ':
+            fct_combine = np.max
+        combined = timemem.set_index(['environment', 'assembler', 'type']).loc[:, ['velveth', 'velvetg', assembler], field, :].reset_index().groupby('environment')['value'].apply(fct_combine).to_frame().reset_index()
+        combined['type'] = field
+        combined['assembler'] = assembler
+        oases_combined.append(combined)
+    
+    timemem = pd.concat([
+        timemem[~timemem['assembler'].isin(['velveth', 'velvetg', assembler])], # result without part of oases
+        pd.concat(oases_combined)]  # combined oases results
+                       )
+    # pretty assembler names
+    timemem['assembler'] = timemem['assembler'].apply(lambda x: settings['labels']['assemblers'].get(x, x))
+
+    # pretty environment names
+    timemem['environment'] = timemem['environment'].apply(lambda x: settings['labels']['environments'].get(x, x))
+
+    return timemem

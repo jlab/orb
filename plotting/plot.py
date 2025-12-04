@@ -8,7 +8,7 @@ import matplotlib.colors as mcolors
 from matplotlib import patches as mpatches
 import colorsys
 import seaborn as sns
-from compile_data import get_environments, getdata_recovery, getdata_gene_recovery
+from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory
 from tqdm import tqdm
 
 
@@ -132,3 +132,26 @@ def plot_gene_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True
                     bbox_to_anchor=(-0.1, -0.25), ncols=3)
             
     return fig
+
+
+def plotTimeMemory(fp_caviar_basedir:str, settings, verbose=True):
+    timemem = getdata_runtime_memory(fp_caviar_basedir, settings)
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4), gridspec_kw={"wspace": 0.5})
+    
+    for ax, (pType, factor, label, title) in zip(axes, [
+            ('CPU time (seconds)', 3600, 'CPU hours', 'Runtime'), 
+            ('Maximum resident set size (kbytes): ', 1024**2, 'RAM in GB', 'Memory footprint')]):
+        plotdata = timemem[timemem['type'] == pType].copy()
+        plotdata['unit'] = plotdata['value'] / factor
+        plotdata = plotdata.sort_values(by='unit')
+        sns.boxplot(data=plotdata, x='unit', y='assembler', orient='h', ax=ax, color='lightgray')
+        sns.stripplot(data=plotdata, x='unit', y='assembler', orient='h', ax=ax, hue='environment', hue_order=settings['labels']['environments'])
+        ax.set_xlabel(label)
+        ax.set_ylabel("")
+        ax.set_title(title)
+        if ax != axes[-1]:
+            ax.legend().remove()
+        else:
+            ax.axvline(x=64, linestyle='-.', color='gray', zorder=-1, label="64 GB laptop")
+            ax.legend()
