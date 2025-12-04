@@ -3,6 +3,8 @@ from os.path import join, basename
 import yaml
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
+
 
 def get_environments(fp_orb_basedir:str, settings) -> [str]:
     """Iterated the base dir of Orb to find environments for which Orb has calculated metrics.
@@ -30,7 +32,7 @@ def get_environments(fp_orb_basedir:str, settings) -> [str]:
 
     return environments
 
-def getdata_recovery(fp_orb_basedir:str, settings) -> pd.DataFrame:
+def getdata_recovery(fp_orb_basedir:str, settings, verbose=True) -> pd.DataFrame:
     """Collects data from Orb for contig recovery analysis.
     
     Parameters
@@ -40,7 +42,8 @@ def getdata_recovery(fp_orb_basedir:str, settings) -> pd.DataFrame:
     settings : yaml-dict
         General settings for plotting Orb graphs. Here, we need
         a) the environment to skip
-
+    verbose : boolean
+        Report progress on sys.stderr
     Returns
     -------
     A pandas.DataFrame that holds performance parameters for assemblers in the different environments.
@@ -48,7 +51,7 @@ def getdata_recovery(fp_orb_basedir:str, settings) -> pd.DataFrame:
     environments = get_environments(fp_orb_basedir, settings)
 
     data = []
-    for environment in environments:
+    for environment in tqdm(environments, disable=not verbose, desc='Compiling data for contig recovery plot'):
         # load orb data
         orb = pd.read_csv(join(fp_orb_basedir, environment, 'mergedresults', '%s_all_scores.tsv' % environment), sep="\t", index_col=0)
         # rename metrics to names used in publication
@@ -69,7 +72,7 @@ def getdata_recovery(fp_orb_basedir:str, settings) -> pd.DataFrame:
         data.append(orb)
     return pd.concat(data)
     
-def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False) -> pd.DataFrame:
+def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False, verbose=True) -> pd.DataFrame:
     mapping_col_names = [
                 "Query sequence name",
                 "Query sequence length",
@@ -88,7 +91,7 @@ def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False) -
     environments = get_environments(fp_orb_basedir, settings)
 
     recovered_contigs = dict()
-    for environment in environments:
+    for environment in tqdm(environments, disable=not verbose, desc='Compiling data for gene recovery plot'):
         recovered_contigs[environment] = dict()
         for fp_category in glob(join(fp_orb_basedir, environment, 'categorizecontigs', '*_contigs_categorised.tsv')):
             assembler = basename(fp_category).split('_contigs_categorised.tsv')[0]
@@ -113,9 +116,16 @@ def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False) -
             recovered_contigs[environment][assembler] = contig_mappings
     
     recovered_genes = []
-    for environment in environments:
-        features = pd.concat([pd.Series(index=list(v['gene_name'].unique()), data=True, name=k).rename_axis('gene_name')
-                            for k, v in recovered_contigs[environment].items()], axis=1).fillna(False)
+    for environment in tqdm(environments, disable=not verbose, desc='Compute sets of unique/shared/core genes for gene recovery plot'):
+        pd.set_option('future.no_silent_downcasting', True)
+        features = pd.concat(
+            [pd.Series(
+                index=list(v['gene_name'].unique()),
+                data=True,
+                name=k,
+             ).rename_axis('gene_name')
+             for k, v in recovered_contigs[environment].items()
+            ], axis=1).replace(np.nan, False).astype(bool)
         if full_gene_table:
             recovered_genes.append((environment,  features.rename(index=settings['labels']['assemblers'])))
             continue
