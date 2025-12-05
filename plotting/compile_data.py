@@ -243,7 +243,7 @@ def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
         truth = pd.read_csv(fp_truth, sep="\t", index_col=0)
         truth.index = list(map(str, truth.index))
 
-        # flag all remaining genes as truly DE
+        # flag all genes which are DE
         truth = truth['padj'].apply(lambda x: x < 0.05).rename('truth')
 
         for fp_category in sorted(glob(join(fp_orb_basedir, environment, 'deseq2', '*_DESeq2_full_table.tsv'))):
@@ -277,3 +277,35 @@ def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
     
     return pd.concat(confusion, axis=0).set_index(['environment', 'assembler', 'class']).sort_index(), recovered_contigs
 
+
+def getdata_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_basedir:str, settings, verbose=True) -> pd.DataFrame:
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
+    data = dict()
+    for environment in tqdm(environments, disable=not verbose, desc='Compiling data for DE Venn diagram'):
+        fp_truth = join(fp_orb_basedir, environment, 'refdeseq2', '%s_DESeq2_full_table.tsv' % environment)
+        truth = pd.read_csv(fp_truth, sep="\t", index_col=0)
+        truth.index = list(map(str, truth.index))
+        
+        # obtain orthogroup information about genes
+        genes = pd.read_csv(join(fp_marbel_basedir, '%s_microbiome' % environment, "summary", "gene_summary.csv"), sep=",").set_index('gene_name')
+        # add a column that reports if the gene is part of a single or multi gene orthogroup
+        genes = genes.merge(genes.groupby('orthogroup').size().apply(lambda x: 'single_gene_OG' if x == 1 else 'multi_gene_OG').rename('OGsize'),
+            left_on='orthogroup', right_index=True, how='left')
+        truth = truth.merge(genes[['orthogroup', 'OGsize']],
+                            left_index=True, right_index=True, how='left')
+
+        # obtain DE truth if genes are collapsed into orthogroups
+        fp_truth_OG = join(fp_ogtruth_basedir, environment, '%s_DESeq2_full_table.tsv' % environment)
+        truthOG = pd.read_csv(fp_truth_OG, sep="\t", index_col=0)
+        truthOG.index = list(map(str, truthOG.index))
+        truth = truth.merge(truthOG, left_on='orthogroup', right_index=True, how='left', suffixes=('_gene', '_orthogroup'))
+
+        # flag elements as DE
+        for typ in ['gene', 'orthogroup']:
+            truth['DE%s' % typ] = truth['padj_%s' % typ] < 0.05
+
+        data[environment] = truth
+
+    return data

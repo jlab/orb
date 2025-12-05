@@ -7,9 +7,10 @@ import pandas as pd
 import matplotlib.colors as mcolors
 from matplotlib import patches as mpatches
 from matplotlib.lines import Line2D
+from matplotlib_venn import venn2
 import colorsys
 import seaborn as sns
-from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes
+from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes, getdata_DEvennOrtho
 from tqdm import tqdm
 
 
@@ -290,4 +291,58 @@ def plot_DEgenes(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
                       #title='Category',
                       bbox_to_anchor=(-0.4, -0.25),
                       ncols=4)
+    return fig
+
+def plot_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_basedir:str, settings, num_columns:int=3, verbose=True):
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
+    # get data
+    truth = getdata_DEvennOrtho(fp_orb_basedir, fp_ogtruth_basedir, fp_marbel_basedir, settings)
+
+    fig, axes = plt.subplots(
+        3,
+        len(environments), figsize=(len(environments) * 3, len(environments)/2 * 3),
+        #gridspec_kw={"wspace": 0.6, "hspace": 0.4}
+    )
+    palette = {'DE orthogroups': 'blue',
+               'DE genes contained in orthogroups': 'orange'}
+    labels = ["", ""]
+
+    reordered_environments = []
+    for start in range(num_columns):
+        reordered_environments.extend(environments[start::num_columns])
+
+    for i, environment in tqdm(enumerate(reordered_environments), disable=not verbose, desc='Drawing panels for DE Venn diagrams'):
+        ax = axes[0][i]
+        venn2([set(truth[environment][truth[environment]['DEorthogroup']]['orthogroup'].values),
+               set(truth[environment][truth[environment]['DEgene']]['orthogroup'].values)],
+              labels,
+              ax=ax, set_colors=(palette['DE orthogroups'], palette['DE genes contained in orthogroups']))
+        ax.set_title(settings['labels']['environments'].get(environment, environment))
+        ax.set_ylabel("all orthogroups")            
+
+        ax = axes[1][i]
+        venn2([set(truth[environment][truth[environment]['DEorthogroup'] & (truth[environment]['OGsize'] == 'multi_gene_OG')]['orthogroup'].values),
+               set(truth[environment][truth[environment]['DEgene'] & (truth[environment]['OGsize'] == 'multi_gene_OG')]['orthogroup'].values)],
+              labels,
+              ax=ax, set_colors=(palette['DE orthogroups'], palette['DE genes contained in orthogroups']))
+        ax.set_ylabel("only multi gene orthogroups")
+
+        ax = axes[2][i]
+        venn2([set(truth[environment][truth[environment]['DEorthogroup'] & (truth[environment]['OGsize'] == 'single_gene_OG')]['orthogroup'].values),
+               set(truth[environment][truth[environment]['DEgene'] & (truth[environment]['OGsize'] == 'single_gene_OG')]['orthogroup'].values)],
+              labels,
+              ax=ax, set_colors=(palette['DE orthogroups'], palette['DE genes contained in orthogroups']))
+        ax.set_ylabel("only single gene orthogroups")
+
+        if i == 0:
+            for row in range(len(axes)):
+                axes[row][i].axison = True
+                for p in ['left', 'right', 'bottom', 'top']:
+                    axes[row][i].spines[p].set_color('white')
+    axes[2][0].legend(handles=[mpatches.Patch(label=grp, facecolor=color, alpha=0.4) for (grp, color) in palette.items()],
+                      bbox_to_anchor=(4.8, -0.),
+                      ncols=2)
+    
     return fig
