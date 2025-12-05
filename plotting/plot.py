@@ -6,9 +6,10 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import matplotlib.colors as mcolors
 from matplotlib import patches as mpatches
+from matplotlib.lines import Line2D
 import colorsys
 import seaborn as sns
-from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory
+from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes
 from tqdm import tqdm
 
 
@@ -130,7 +131,10 @@ def plot_gene_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True
                 mpatches.Patch(color=_color_desaturate(palette['core'], 0.75), label='recovered by all'),
                 mpatches.Patch(color=_color_desaturate(palette['shared'], 0.75), label='recovered by some')],
                     bbox_to_anchor=(-0.1, -0.25), ncols=3)
-            
+        
+        # panel labels
+        ax.text(-0.43, 1.05, chr(97+i), transform=ax.transAxes, fontsize=16, fontweight='bold',)
+
     return fig
 
 
@@ -154,4 +158,136 @@ def plotTimeMemory(fp_caviar_basedir:str, settings, verbose=True):
             ax.legend().remove()
         else:
             ax.axvline(x=64, linestyle='-.', color='gray', zorder=-1, label="64 GB laptop")
-            ax.legend()
+            ax.legend(bbox_to_anchor=(1.1, -0.15), ncols=7)
+
+    # panel labels
+    for i, ax in enumerate(axes):
+        ax.text(-0.43, 1.05, chr(97+i), transform=ax.transAxes, fontsize=16, fontweight='bold',)
+
+    return fig
+
+
+def get_rank_shifts(ranksA: pd.Series, ranksB: pd.Series, mergeAssembler={'idba': ['IDBA-MT', 'IDBA-tran']}):
+    """Given two rankings for the same set of assembler, compute the difference in rank positions.
+    
+    Note: optionally treat different assemblers as identical, e.g. IDBA-MT and IDBA-tran
+    """
+    def _merge_assembler(ranks, mergeAssembler):
+        # map different assemblers to same label, e.g. for IDBA-MT and IDBA-tran, because we don't see differences and want to keep them as one
+        ranks.name = 'old_ranks'
+        ranks = ranks.to_frame()
+        ranks['merged'] = list(map(lambda x: {label: mergelabel for mergelabel, assemblers in mergeAssembler.items() for label in assemblers}.get(x, x), ranks.index))
+        return ranks
+
+    def _rerank_nomergedassemblers(ranks):
+        # assign new ranks according to the given ones, but assign same rank to same assembler name
+        rank = 0
+        currAss = None
+        newranks = []
+        ranks = ranks.sort_values('old_ranks')
+        for assembler in ranks['merged'].values:
+            if currAss != assembler:
+                rank +=1
+            currAss = assembler
+            newranks.append(rank)
+        ranks['merged_ranks'] = newranks
+        return ranks['merged_ranks']
+
+    cmp = pd.concat([_rerank_nomergedassemblers(_merge_assembler(ranksA, mergeAssembler)).rename('rank_reference'),
+                     _rerank_nomergedassemblers(_merge_assembler(ranksB, mergeAssembler)).rename('rank_other')], axis=1)
+    cmp['shift'] = cmp.iloc[:, 0] - cmp.iloc[:, 1]
+    
+    def _create_label(row):
+        if row['shift'] > 0:
+            return '%s ⬆+%i' % (row.name, row['shift'])
+        elif row['shift'] < 0:
+            return '%s ⬇%i' % (row.name, row['shift'])
+        else:
+            return '%s %i' % (row.name, row['shift'])
+    cmp['label'] = cmp.apply(_create_label, axis=1)
+
+    def _create_color(row):
+        if row['shift'] > 0:
+            return 'darkgreen'
+        elif row['shift'] < 0:
+            return 'darkorange'
+        else:
+            return 'black'
+    cmp['color'] = cmp.apply(_create_color, axis=1)
+    
+    return  cmp
+
+def plot_DEgenes(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+    
+    # load data
+    degenes, _ = getdata_DEgenes(fp_orb_basedir, settings, verbose)
+    recovery = getdata_recovery(fp_orb_basedir, settings, verbose)
+
+    fig, axes = plt.subplots(
+        int(np.ceil(len(environments) / num_columns)), 
+        num_columns, figsize=(num_columns * 7, np.ceil(len(environments) / num_columns) * 4),
+        gridspec_kw={"hspace": 0.31, "wspace": 0.5})
+    BARWIDTH=0.8
+
+    palette = {'True Positive': '#238cc3',
+            'False Positive': '#5d5e60',
+            'False Negative': '#c06364'}
+    for i, environment in tqdm(enumerate(environments), disable=not verbose, desc='Drawing panels for DE plot'):
+        ax = axes[i // num_columns, i % num_columns]
+        
+        order = list(reversed(
+            pd.pivot_table(data=degenes.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum").sort_values(
+                by=       ['True Positive', 'False Positive', 'False Negative'],
+                ascending=[False,           True,             True]).index))
+        for y, assembler in enumerate(order):
+            cls = 'True Positive'
+            pos_TP = degenes.loc[environment, assembler, cls]['num_genes']
+            ax.add_patch(plt.Rectangle((0, y), pos_TP, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
+        
+            cls = 'False Positive'
+            pos_FP = degenes.loc[environment, assembler, cls]['num_genes']
+            ax.add_patch(plt.Rectangle((pos_TP, y), pos_FP, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
+        
+            cls = 'False Negative'
+            pos_FN = degenes.loc[environment, assembler, cls]['num_genes']
+            ax.add_patch(plt.Rectangle((0, y), -1 * pos_FN, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
+        ax.set_ylim((-1 * (1 - BARWIDTH), len(order)))
+        
+        ranks = get_rank_shifts(recovery[recovery['environment'] == environment]['recovery_rank'],
+                                pd.Series(index=order, data=reversed(range(1, len(order) + 1))))
+        ax.set_yticks(list(map(lambda x: x + BARWIDTH/2, range(len(order)))), ranks.loc[order, 'label'].values)
+        for tick_label, color in zip(ax.get_yticklabels(), ranks.loc[order, 'color'].values):
+            tick_label.set_color(color)
+                
+        ax.set_title(settings['labels']['environments'].get(environment, environment))
+        ax.set_xlabel('number genes')
+        
+        num_positives = degenes.loc[environment, :].reset_index().set_index('truth').loc[True].groupby('assembler')['num_genes'].sum().iloc[0]
+        ax.axvline(x=num_positives, color=palette['True Positive'], label='Positive')
+        maxX = (degenes.loc[environment, :, 'True Positive']['num_genes'] + degenes.loc[environment, :, 'False Positive']['num_genes']).max()
+        for (ex_env, ex_ass) in [('seawater', 'Trinity'),
+                                ('freshwater', 'Trinity'),
+                                ('healthy_gut', 'dbg')]:
+            if environment == ex_env:
+                pdata = degenes.loc[environment, [ass for ass in degenes.loc[environment, :].index.levels[0] if ass != ex_ass], :]
+                maxX = (pdata.loc[environment, :, 'True Positive']['num_genes'] + pdata.loc[environment, :, 'False Positive']['num_genes']).max()
+
+                ax.text(max(1, num_positives, maxX), list(order).index(ex_ass) + 0.35, '%i' % degenes.loc[environment, ex_ass, 'False Positive']['num_genes'],
+                        verticalalignment='center', horizontalalignment='right', color='white')
+
+        # panel labels
+        ax.text(-0.43, 1.05, chr(97+i), transform=ax.transAxes, fontsize=16, fontweight='bold',)
+
+        ax.set_xlim((
+            -1.1 * max(1, degenes.loc[environment, :, 'False Negative']['num_genes'].max()),
+            1.1 * max(1, num_positives, maxX)))
+
+        if i+1 == len(environments):
+            ax.legend(handles=[mpatches.Patch(color=palette[cls], label=cls) for cls in palette.keys()] + \
+                              [Line2D([0], [0], color=palette['True Positive'], lw=2, label='Positive')],
+                      #title='Category',
+                      bbox_to_anchor=(-0.4, -0.25),
+                      ncols=4)
+    return fig

@@ -71,8 +71,8 @@ def getdata_recovery(fp_orb_basedir:str, settings, verbose=True) -> pd.DataFrame
         orb['recovery_rank'] = list(reversed(range(1, orb.shape[0] + 1)))
         data.append(orb)
     return pd.concat(data)
-    
-def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False, verbose=True) -> pd.DataFrame:
+
+def get_recovered_contigs(fp_orb_basedir:str, settings, verbose=True):
     mapping_col_names = [
                 "Query sequence name",
                 "Query sequence length",
@@ -114,7 +114,39 @@ def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False, v
             contig_mappings['gene_name'] = contig_mappings['block_id'].apply(lambda x: x.split('_block')[0])        
             
             recovered_contigs[environment][assembler] = contig_mappings
-    
+
+    return recovered_contigs
+
+def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False, verbose=True) -> pd.DataFrame:
+    recovered_contigs = get_recovered_contigs(fp_orb_basedir, settings, verbose=True)
+    # recovered_contigs = dict()
+    # for environment in tqdm(environments, disable=not verbose, desc='Compiling data for gene recovery plot'):
+    #     recovered_contigs[environment] = dict()
+    #     for fp_category in glob(join(fp_orb_basedir, environment, 'categorizecontigs', '*_contigs_categorised.tsv')):
+    #         assembler = basename(fp_category).split('_contigs_categorised.tsv')[0]
+            
+    #         contig_classes = pd.read_csv(fp_category, sep="\t", index_col=0)
+    #         contig_classes.index = list(map(str, contig_classes.index))
+
+    #         contig_mappings = pd.read_csv(
+    #             join(fp_orb_basedir, environment, 'minimap2', '%s_mapping.tsv' % assembler), sep="\t", header=None, names=mapping_col_names, dtype={'Query sequence name': str}
+    #                 ).sort_values(by=['Mapping quality', 'Number of matching bases in the mapping'], ascending=[False, False]  # sort hits by mapping quality AND number of involved matching bases
+    #                     ).groupby(['Query sequence name']).head(1  # for every contig: pick only best hit
+    #                         ).groupby('block_id').head(1).merge(  # for every block: pick only best hit
+    #                             contig_classes, left_on=['Query sequence name'], right_index=True, how='left')  # merge Timo's contig categorization
+    #         # add a binary classification: good and missed ...
+    #         contig_mappings['class'] = contig_mappings['category'].apply(lambda x: 'good' if x in [col for col, c in settings['contig_classes'].items() if c['class'] == 'good'] else 'missed')
+    #         # ... and keep only those in class "good"
+    #         contig_mappings = contig_mappings[contig_mappings['class'] ==  'good']
+            
+    #         # derive gene name from block_id
+    #         contig_mappings['gene_name'] = contig_mappings['block_id'].apply(lambda x: x.split('_block')[0])        
+            
+    #         recovered_contigs[environment][assembler] = contig_mappings
+
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
     recovered_genes = []
     for environment in tqdm(environments, disable=not verbose, desc='Compute sets of unique/shared/core genes for gene recovery plot'):
         pd.set_option('future.no_silent_downcasting', True)
@@ -198,3 +230,50 @@ def getdata_runtime_memory(fp_caviar_basedir:str, settings, verbose=True):
     timemem['environment'] = timemem['environment'].apply(lambda x: settings['labels']['environments'].get(x, x))
 
     return timemem
+
+def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
+    recovered_contigs = get_recovered_contigs(fp_orb_basedir, settings, verbose=True)
+
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
+    confusion = []
+    for environment in tqdm(environments, disable=not verbose, desc='Compiling data for DE gene plot'):
+        fp_truth = join(fp_orb_basedir, environment, 'refdeseq2', '%s_DESeq2_full_table.tsv' % environment)
+        truth = pd.read_csv(fp_truth, sep="\t", index_col=0)
+        truth.index = list(map(str, truth.index))
+
+        # flag all remaining genes as truly DE
+        truth = truth['padj'].apply(lambda x: x < 0.05).rename('truth')
+
+        for fp_category in sorted(glob(join(fp_orb_basedir, environment, 'deseq2', '*_DESeq2_full_table.tsv'))):
+            assembler = basename(fp_category).split('_DESeq2_full_table.tsv')[0]
+            prediction = pd.read_csv(fp_category, sep="\t", index_col=0)
+            prediction.index = list(map(str, prediction.index))
+            
+            # only keep contigs that have been identified as being statistically significant
+            # flag all remaining contigs as DE prediction
+            prediction = prediction['padj'].apply(lambda x: x < 0.05).rename('prediction')
+
+            pd.set_option('future.no_silent_downcasting', True)
+            # combine assembled contigs with DE truth and prediction and count occurences
+            conv = recovered_contigs[environment][assembler].merge(
+                truth, left_on='gene_name', right_index=True, how='outer').merge(
+                    prediction, left_on='Query sequence name', right_index=True, how='outer').groupby('gene_name').head(1).fillna(False).groupby(
+                        ['truth', 'prediction']).size()
+
+            # re-structure convolution data
+            conv = conv.rename('num_genes').to_frame()
+            # give more speaking names
+            conv['class'] = list(map(lambda row: {(False, False): 'True Negative',
+                                                (False, True): 'False Positive',
+                                                (True, False): 'False Negative',
+                                                (True, True): 'True Positive'}.get(row[0], row[0]), conv.iterrows()))
+            # add in environment + assembler info
+            conv['environment'] = settings['labels']['assemblers'].get(environment, environment)
+            conv['assembler'] = settings['labels']['assemblers'].get(assembler, assembler)
+            conv = conv.reset_index()
+            confusion.append(conv)
+    
+    return pd.concat(confusion, axis=0).set_index(['environment', 'assembler', 'class']).sort_index(), recovered_contigs
+
