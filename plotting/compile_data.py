@@ -4,6 +4,7 @@ import yaml
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from scipy.spatial.distance import pdist, squareform
 
 
 def get_environments(fp_orb_basedir:str, settings) -> [str]:
@@ -266,9 +267,9 @@ def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
             conv = conv.rename('num_genes').to_frame()
             # give more speaking names
             conv['class'] = list(map(lambda row: {(False, False): 'True Negative',
-                                                (False, True): 'False Positive',
-                                                (True, False): 'False Negative',
-                                                (True, True): 'True Positive'}.get(row[0], row[0]), conv.iterrows()))
+                                                  (False, True): 'False Positive',
+                                                  (True, False): 'False Negative',
+                                                  (True, True): 'True Positive'}.get(row[0], row[0]), conv.iterrows()))
             # add in environment + assembler info
             conv['environment'] = settings['labels']['assemblers'].get(environment, environment)
             conv['assembler'] = settings['labels']['assemblers'].get(assembler, assembler)

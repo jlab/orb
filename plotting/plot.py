@@ -10,8 +10,11 @@ from matplotlib.lines import Line2D
 from matplotlib_venn import venn2
 import colorsys
 import seaborn as sns
-from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes, getdata_DEvennOrtho, getdata_DEorthogroups
+from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes, getdata_DEvennOrtho, getdata_DEorthogroups, get_recovered_contigs
 from tqdm import tqdm
+from scipy.cluster.hierarchy import linkage, leaves_list, dendrogram
+from scipy.spatial.distance import pdist, squareform
+from skbio.stats.distance import DistanceMatrix
 
 
 def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
@@ -221,83 +224,6 @@ def get_rank_shifts(ranksA: pd.Series, ranksB: pd.Series, mergeAssembler={'idba'
     
     return  cmp
 
-# def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, fp_marbel_basedir:str=None, fp_ogtruth_basedir:str=None, num_columns:int=3, verbose=True):
-#     # which environments to plot and in which order
-#     environments = get_environments(fp_orb_basedir, settings)
-    
-#     # load data
-#     if forOrthogroups is False:
-#         degenes, _ = getdata_DEgenes(fp_orb_basedir, settings, verbose)
-#     else:
-#         degenes, _ = getdata_DEorthogroups(fp_orb_basedir, fp_marbel_basedir, fp_ogtruth_basedir, settings)
-#     recovery = getdata_recovery(fp_orb_basedir, settings, verbose)
-
-#     fig, axes = plt.subplots(
-#         int(np.ceil(len(environments) / num_columns)), 
-#         num_columns, figsize=(num_columns * 7, np.ceil(len(environments) / num_columns) * 4),
-#         gridspec_kw={"hspace": 0.31, "wspace": 0.5})
-#     BARWIDTH=0.8
-
-#     palette = {'True Positive': '#238cc3',
-#             'False Positive': '#5d5e60',
-#             'False Negative': '#c06364'}
-#     for i, environment in tqdm(enumerate(environments), disable=not verbose, desc='Drawing panels for DE plot'):
-#         ax = axes[i // num_columns, i % num_columns]
-        
-#         order = list(reversed(
-#             pd.pivot_table(data=degenes.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum").sort_values(
-#                 by=       ['True Positive', 'False Positive', 'False Negative'],
-#                 ascending=[False,           True,             True]).index))
-#         for y, assembler in enumerate(order):
-#             cls = 'True Positive'
-#             pos_TP = degenes.loc[environment, assembler, cls]['num_genes']
-#             ax.add_patch(plt.Rectangle((0, y), pos_TP, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
-        
-#             cls = 'False Positive'
-#             pos_FP = degenes.loc[environment, assembler, cls]['num_genes']
-#             ax.add_patch(plt.Rectangle((pos_TP, y), pos_FP, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
-        
-#             cls = 'False Negative'
-#             pos_FN = degenes.loc[environment, assembler, cls]['num_genes']
-#             ax.add_patch(plt.Rectangle((0, y), -1 * pos_FN, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
-#         ax.set_ylim((-1 * (1 - BARWIDTH), len(order)))
-        
-#         ranks = get_rank_shifts(recovery[recovery['environment'] == environment]['recovery_rank'],
-#                                 pd.Series(index=order, data=reversed(range(1, len(order) + 1))))
-#         ax.set_yticks(list(map(lambda x: x + BARWIDTH/2, range(len(order)))), ranks.loc[order, 'label'].values)
-#         for tick_label, color in zip(ax.get_yticklabels(), ranks.loc[order, 'color'].values):
-#             tick_label.set_color(color)
-                
-#         ax.set_title(settings['labels']['environments'].get(environment, environment))
-#         ax.set_xlabel('number genes')
-        
-#         num_positives = degenes.loc[environment, :].reset_index().set_index('truth').loc[True].groupby('assembler')['num_genes'].sum().iloc[0]
-#         ax.axvline(x=num_positives, color=palette['True Positive'], label='Positive')
-#         maxX = (degenes.loc[environment, :, 'True Positive']['num_genes'] + degenes.loc[environment, :, 'False Positive']['num_genes']).max()
-#         for (ex_env, ex_ass) in [('seawater', 'Trinity'),
-#                                 ('freshwater', 'Trinity'),
-#                                 ('healthy_gut', 'dbg')]:
-#             if environment == ex_env:
-#                 pdata = degenes.loc[environment, [ass for ass in degenes.loc[environment, :].index.levels[0] if ass != ex_ass], :]
-#                 maxX = (pdata.loc[environment, :, 'True Positive']['num_genes'] + pdata.loc[environment, :, 'False Positive']['num_genes']).max()
-
-#                 ax.text(max(1, num_positives, maxX), list(order).index(ex_ass) + 0.35, '%i' % degenes.loc[environment, ex_ass, 'False Positive']['num_genes'],
-#                         verticalalignment='center', horizontalalignment='right', color='white')
-
-#         # panel labels
-#         ax.text(-0.43, 1.05, chr(97+i), transform=ax.transAxes, fontsize=16, fontweight='bold',)
-
-#         ax.set_xlim((
-#             -1.1 * max(1, degenes.loc[environment, :, 'False Negative']['num_genes'].max()),
-#             1.1 * max(1, num_positives, maxX)))
-
-#         if i+1 == len(environments):
-#             ax.legend(handles=[mpatches.Patch(color=palette[cls], label=cls) for cls in palette.keys()] + \
-#                               [Line2D([0], [0], color=palette['True Positive'], lw=2, label='Positive')],
-#                       #title='Category',
-#                       bbox_to_anchor=(-0.4, -0.25),
-#                       ncols=4)
-#     return fig
 
 def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, fp_marbel_basedir:str=None, fp_ogtruth_basedir:str=None, num_columns:int=3, verbose=True):
     # which environments to plot and in which order
@@ -428,5 +354,94 @@ def plot_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_based
     axes[2][0].legend(handles=[mpatches.Patch(label=grp, facecolor=color, alpha=0.4) for (grp, color) in palette.items()],
                       bbox_to_anchor=(4.8, -0.),
                       ncols=2)
+    
+    return fig
+
+
+def plot_heatmap(fp_orb_basedir:str, settings, num_columns:int=3, verbose=True):
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+    # re-order environments such that two additional "environments"
+    # are spiked in for the color map and the combined environment
+    def _spikein(environments, num_cols=3, spikeelements=['colormap', 'all six environments']):
+        chunks = [environments[i:i+num_columns] for i in range(0, len(environments), num_columns)]
+        reordered = []
+        for i, spike in enumerate(spikeelements):
+            reordered.extend(chunks[i])
+            reordered.append(spike)
+        for chunk in chunks[len(spikeelements):]:
+            reordered.extend(chunk)
+        return reordered
+    ext_environments = _spikein(environments)
+    num_columns += 1
+
+    # load data
+    recovered_contigs = get_recovered_contigs(fp_orb_basedir, settings, verbose)
+
+    fig, axes = plt.subplots(
+        int(np.ceil(len(ext_environments) / num_columns)) * 2, 
+        num_columns,
+        figsize=(num_columns * 5, np.ceil((len(ext_environments) + 1) / num_columns) * 4),
+        height_ratios=[1, 5] * (len(ext_environments) // num_columns),
+        gridspec_kw={"hspace": 0.6, "wspace": 0.6}
+    )
+
+    for i, environment in tqdm(enumerate(ext_environments), disable=not verbose, desc='Compute heatmap'):
+        col = i % num_columns
+        row = i // num_columns
+        ax_dendro = axes[row * 2 + 0, col]
+        ax_heat = axes[row * 2 + 1, col]
+        
+        # panel labels
+        ax_dendro.text(-0.33, 1.05, chr(97+i), transform=ax_dendro.transAxes, fontsize=16, fontweight='bold',)
+
+        if environment == 'colormap':
+            ax_dendro.axis("off")
+            ax_heat.set_position([
+                ax_heat.get_position().x0,
+                ax_heat.get_position().y0,
+                ax_heat.get_position().width / 5,
+                ax_heat.get_position().height
+                ])
+            ax_heat.set_title("Jaccard distance")
+            continue
+        pd.set_option('future.no_silent_downcasting', True)
+        if environment == 'all six environments':
+            features = pd.concat(
+                [pd.concat(
+                    [pd.Series(
+                        index=list(v['gene_name'].unique()),
+                        data=True,
+                        name=k,
+                     ).rename_axis('gene_name')
+                     for k, v in recovered_contigs[env].items()
+                    ], axis=1).replace(np.nan, False).astype(bool)
+                 for env in environments])
+        else:
+            features = pd.concat(
+                [pd.Series(
+                    index=list(v['gene_name'].unique()),
+                    data=True,
+                    name=k,
+                 ).rename_axis('gene_name')
+                 for k, v in recovered_contigs[environment].items()
+                ], axis=1).replace(np.nan, False).astype(bool)
+
+        jaccard_distances = DistanceMatrix(squareform(pdist(features.T, metric='jaccard')), ids=[settings['labels']['assemblers'].get(ass, ass) for ass in features.columns]).to_data_frame()
+    
+        linkage_matrix = linkage(features.T, method='average', metric='jaccard')#, optimal_ordering=False) 
+        col_dendro = dendrogram(linkage_matrix, no_plot=True)
+        col_order = col_dendro['leaves']
+        sns.heatmap(jaccard_distances.iloc[col_order, col_order], ax=ax_heat, cbar=row==0 and col==num_columns-2, vmin=0, vmax=1, cbar_ax=axes[1, len(axes[0])-1])
+
+        dendrogram(linkage_matrix, ax=ax_dendro, color_threshold=0, no_labels=True)
+        ax_dendro.axis("off")
+        ax_dendro.set_title(settings['labels']['environments'].get(environment, environment))
+        ax_dendro.set_position([
+                ax_dendro.get_position().x0,
+                ax_heat.get_position().y1,
+                ax_dendro.get_position().width,
+                ax_dendro.get_position().height
+                ])
     
     return fig
