@@ -275,7 +275,85 @@ def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
             conv = conv.reset_index()
             confusion.append(conv)
     
-    return pd.concat(confusion, axis=0).set_index(['environment', 'assembler', 'class']).sort_index(), recovered_contigs
+    # re-structure into one dataframe
+    confusion = pd.concat(confusion, axis=0).set_index(['environment', 'assembler', 'class']).sort_index()
+    confusion['rank'] = np.nan
+
+    # add rank information to return dataframe
+    for environment in confusion.index.levels[0]:
+        order = list(reversed(
+            pd.pivot_table(data=confusion.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum").sort_values(
+                by=       ['True Positive', 'False Positive', 'False Negative'],
+                ascending=[False,           True,             True]).index))
+        confusion.loc[confusion.loc[environment, order, :].index, 'rank'] = [
+            rank
+            for rank in list(reversed(range(1, len(order) + 1)))
+            for i in range(confusion.reset_index()['class'].unique().shape[0])]
+
+    return confusion, recovered_contigs
+
+def getdata_DEorthogroups(fp_orb_basedir:str, fp_marbel_basedir:str, fp_ogtruth_basedir:str, settings, verbose=True):
+    recovered_contigs = get_recovered_contigs(fp_orb_basedir, settings, verbose=True)
+
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
+    confusion = []
+    for environment in tqdm(environments, disable=not verbose, desc='Compiling data for DE orthogroup plot'):
+        # obtain orthogroup information about genes
+        genes = pd.read_csv(join(fp_marbel_basedir, '%s_microbiome' % environment, "summary", "gene_summary.csv"), sep=",").set_index('gene_name')
+        
+        fp_truth = join(fp_ogtruth_basedir, environment, '%s_DESeq2_full_table.tsv' % environment)
+        truth = pd.read_csv(fp_truth, sep="\t", index_col=0)
+        truth.index = list(map(str, truth.index))
+
+        # flag all genes which are DE
+        truth = truth['padj'].apply(lambda x: x < 0.05).rename('truth')
+
+        for fp_assembler in sorted(glob(join(fp_ogtruth_basedir, environment, '%s_*_DESeq2_full_table.tsv' % environment))):
+            assembler = basename(fp_assembler).split('_DESeq2_full_table.tsv')[0].split('%s_' % environment)[-1]
+            prediction = pd.read_csv(fp_assembler, sep="\t", index_col=0)
+            prediction.index = list(map(str, prediction.index))
+
+            prediction = prediction['padj'].apply(lambda x: x < 0.05).rename('prediction')
+
+            pd.set_option('future.no_silent_downcasting', True)
+            conv = recovered_contigs[environment][assembler].merge(
+                genes[['orthogroup']], left_on='gene_name', right_index=True, how='left').merge(
+                    truth, left_on='orthogroup', right_index=True, how='outer').merge(
+                        prediction, left_on='orthogroup', right_index=True, how='outer').groupby(
+                            'orthogroup').head(1).fillna(False).groupby(
+                                ['truth', 'prediction']).size()
+
+            # re-structure convolution data
+            conv = conv.rename('num_genes').to_frame()
+            # give more speaking names
+            conv['class'] = list(map(lambda row: {(False, False): 'True Negative',
+                                                  (False, True): 'False Positive',
+                                                  (True, False): 'False Negative',
+                                                  (True, True): 'True Positive'}.get(row[0], row[0]), conv.iterrows()))
+            # add in environment + assembler info
+            conv['environment'] = settings['labels']['assemblers'].get(environment, environment)
+            conv['assembler'] = settings['labels']['assemblers'].get(assembler, assembler)
+            conv = conv.reset_index()
+            confusion.append(conv)
+
+    # re-structure into one dataframe
+    confusion = pd.concat(confusion, axis=0).set_index(['environment', 'assembler', 'class']).sort_index()
+    confusion['rank'] = np.nan
+
+    # add rank information to return dataframe
+    for environment in confusion.index.levels[0]:
+        order = list(reversed(
+            pd.pivot_table(data=confusion.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum").sort_values(
+                by=       ['True Positive', 'False Positive', 'False Negative'],
+                ascending=[False,           True,             True]).index))
+        confusion.loc[confusion.loc[environment, order, :].index, 'rank'] = [
+            rank
+            for rank in list(reversed(range(1, len(order) + 1)))
+            for i in range(confusion.reset_index()['class'].unique().shape[0])]
+
+    return confusion, recovered_contigs
 
 
 def getdata_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_basedir:str, settings, verbose=True) -> pd.DataFrame:

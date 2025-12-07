@@ -10,7 +10,7 @@ from matplotlib.lines import Line2D
 from matplotlib_venn import venn2
 import colorsys
 import seaborn as sns
-from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes, getdata_DEvennOrtho
+from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes, getdata_DEvennOrtho, getdata_DEorthogroups
 from tqdm import tqdm
 
 
@@ -196,6 +196,9 @@ def get_rank_shifts(ranksA: pd.Series, ranksB: pd.Series, mergeAssembler={'idba'
 
     cmp = pd.concat([_rerank_nomergedassemblers(_merge_assembler(ranksA, mergeAssembler)).rename('rank_reference'),
                      _rerank_nomergedassemblers(_merge_assembler(ranksB, mergeAssembler)).rename('rank_other')], axis=1)
+    # should an assembler be missing in one of the ranks, assign worst+1 rank to it
+    for col in cmp.columns:
+        cmp[col] = cmp[col].fillna(cmp[col].max() + 1)
     cmp['shift'] = cmp.iloc[:, 0] - cmp.iloc[:, 1]
     
     def _create_label(row):
@@ -218,13 +221,95 @@ def get_rank_shifts(ranksA: pd.Series, ranksB: pd.Series, mergeAssembler={'idba'
     
     return  cmp
 
-def plot_DEgenes(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
+# def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, fp_marbel_basedir:str=None, fp_ogtruth_basedir:str=None, num_columns:int=3, verbose=True):
+#     # which environments to plot and in which order
+#     environments = get_environments(fp_orb_basedir, settings)
+    
+#     # load data
+#     if forOrthogroups is False:
+#         degenes, _ = getdata_DEgenes(fp_orb_basedir, settings, verbose)
+#     else:
+#         degenes, _ = getdata_DEorthogroups(fp_orb_basedir, fp_marbel_basedir, fp_ogtruth_basedir, settings)
+#     recovery = getdata_recovery(fp_orb_basedir, settings, verbose)
+
+#     fig, axes = plt.subplots(
+#         int(np.ceil(len(environments) / num_columns)), 
+#         num_columns, figsize=(num_columns * 7, np.ceil(len(environments) / num_columns) * 4),
+#         gridspec_kw={"hspace": 0.31, "wspace": 0.5})
+#     BARWIDTH=0.8
+
+#     palette = {'True Positive': '#238cc3',
+#             'False Positive': '#5d5e60',
+#             'False Negative': '#c06364'}
+#     for i, environment in tqdm(enumerate(environments), disable=not verbose, desc='Drawing panels for DE plot'):
+#         ax = axes[i // num_columns, i % num_columns]
+        
+#         order = list(reversed(
+#             pd.pivot_table(data=degenes.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum").sort_values(
+#                 by=       ['True Positive', 'False Positive', 'False Negative'],
+#                 ascending=[False,           True,             True]).index))
+#         for y, assembler in enumerate(order):
+#             cls = 'True Positive'
+#             pos_TP = degenes.loc[environment, assembler, cls]['num_genes']
+#             ax.add_patch(plt.Rectangle((0, y), pos_TP, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
+        
+#             cls = 'False Positive'
+#             pos_FP = degenes.loc[environment, assembler, cls]['num_genes']
+#             ax.add_patch(plt.Rectangle((pos_TP, y), pos_FP, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
+        
+#             cls = 'False Negative'
+#             pos_FN = degenes.loc[environment, assembler, cls]['num_genes']
+#             ax.add_patch(plt.Rectangle((0, y), -1 * pos_FN, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
+#         ax.set_ylim((-1 * (1 - BARWIDTH), len(order)))
+        
+#         ranks = get_rank_shifts(recovery[recovery['environment'] == environment]['recovery_rank'],
+#                                 pd.Series(index=order, data=reversed(range(1, len(order) + 1))))
+#         ax.set_yticks(list(map(lambda x: x + BARWIDTH/2, range(len(order)))), ranks.loc[order, 'label'].values)
+#         for tick_label, color in zip(ax.get_yticklabels(), ranks.loc[order, 'color'].values):
+#             tick_label.set_color(color)
+                
+#         ax.set_title(settings['labels']['environments'].get(environment, environment))
+#         ax.set_xlabel('number genes')
+        
+#         num_positives = degenes.loc[environment, :].reset_index().set_index('truth').loc[True].groupby('assembler')['num_genes'].sum().iloc[0]
+#         ax.axvline(x=num_positives, color=palette['True Positive'], label='Positive')
+#         maxX = (degenes.loc[environment, :, 'True Positive']['num_genes'] + degenes.loc[environment, :, 'False Positive']['num_genes']).max()
+#         for (ex_env, ex_ass) in [('seawater', 'Trinity'),
+#                                 ('freshwater', 'Trinity'),
+#                                 ('healthy_gut', 'dbg')]:
+#             if environment == ex_env:
+#                 pdata = degenes.loc[environment, [ass for ass in degenes.loc[environment, :].index.levels[0] if ass != ex_ass], :]
+#                 maxX = (pdata.loc[environment, :, 'True Positive']['num_genes'] + pdata.loc[environment, :, 'False Positive']['num_genes']).max()
+
+#                 ax.text(max(1, num_positives, maxX), list(order).index(ex_ass) + 0.35, '%i' % degenes.loc[environment, ex_ass, 'False Positive']['num_genes'],
+#                         verticalalignment='center', horizontalalignment='right', color='white')
+
+#         # panel labels
+#         ax.text(-0.43, 1.05, chr(97+i), transform=ax.transAxes, fontsize=16, fontweight='bold',)
+
+#         ax.set_xlim((
+#             -1.1 * max(1, degenes.loc[environment, :, 'False Negative']['num_genes'].max()),
+#             1.1 * max(1, num_positives, maxX)))
+
+#         if i+1 == len(environments):
+#             ax.legend(handles=[mpatches.Patch(color=palette[cls], label=cls) for cls in palette.keys()] + \
+#                               [Line2D([0], [0], color=palette['True Positive'], lw=2, label='Positive')],
+#                       #title='Category',
+#                       bbox_to_anchor=(-0.4, -0.25),
+#                       ncols=4)
+#     return fig
+
+def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, fp_marbel_basedir:str=None, fp_ogtruth_basedir:str=None, num_columns:int=3, verbose=True):
     # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
     
     # load data
-    degenes, _ = getdata_DEgenes(fp_orb_basedir, settings, verbose)
-    recovery = getdata_recovery(fp_orb_basedir, settings, verbose)
+    DEfeatures, _ = getdata_DEgenes(fp_orb_basedir, settings, verbose)
+    if forOrthogroups is False:
+        rank_data = getdata_recovery(fp_orb_basedir, settings, verbose)
+    else:
+        rank_data = DEfeatures.loc[:, :, 'True Positive']['rank'].reset_index().rename(columns={'rank': 'recovery_rank'}).set_index('assembler').copy()
+        DEfeatures, _ = getdata_DEorthogroups(fp_orb_basedir, fp_marbel_basedir, fp_ogtruth_basedir, settings)
 
     fig, axes = plt.subplots(
         int(np.ceil(len(environments) / num_columns)), 
@@ -233,30 +318,27 @@ def plot_DEgenes(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
     BARWIDTH=0.8
 
     palette = {'True Positive': '#238cc3',
-            'False Positive': '#5d5e60',
-            'False Negative': '#c06364'}
+               'False Positive': '#5d5e60',
+               'False Negative': '#c06364'}
     for i, environment in tqdm(enumerate(environments), disable=not verbose, desc='Drawing panels for DE plot'):
         ax = axes[i // num_columns, i % num_columns]
         
-        order = list(reversed(
-            pd.pivot_table(data=degenes.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum").sort_values(
-                by=       ['True Positive', 'False Positive', 'False Negative'],
-                ascending=[False,           True,             True]).index))
+        order = list(DEfeatures.loc[environment, :].reset_index().groupby('assembler').head(1).set_index('assembler')['rank'].sort_values(ascending=False).index)
         for y, assembler in enumerate(order):
             cls = 'True Positive'
-            pos_TP = degenes.loc[environment, assembler, cls]['num_genes']
+            pos_TP = DEfeatures.loc[environment, assembler, cls]['num_genes']
             ax.add_patch(plt.Rectangle((0, y), pos_TP, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
         
             cls = 'False Positive'
-            pos_FP = degenes.loc[environment, assembler, cls]['num_genes']
+            pos_FP = DEfeatures.loc[environment, assembler, cls]['num_genes']
             ax.add_patch(plt.Rectangle((pos_TP, y), pos_FP, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
         
             cls = 'False Negative'
-            pos_FN = degenes.loc[environment, assembler, cls]['num_genes']
+            pos_FN = DEfeatures.loc[environment, assembler, cls]['num_genes']
             ax.add_patch(plt.Rectangle((0, y), -1 * pos_FN, BARWIDTH, facecolor=palette[cls], edgecolor='white', linewidth=1, label=cls if y == 0 else None))
         ax.set_ylim((-1 * (1 - BARWIDTH), len(order)))
         
-        ranks = get_rank_shifts(recovery[recovery['environment'] == environment]['recovery_rank'],
+        ranks = get_rank_shifts(rank_data[rank_data['environment'] == environment]['recovery_rank'],
                                 pd.Series(index=order, data=reversed(range(1, len(order) + 1))))
         ax.set_yticks(list(map(lambda x: x + BARWIDTH/2, range(len(order)))), ranks.loc[order, 'label'].values)
         for tick_label, color in zip(ax.get_yticklabels(), ranks.loc[order, 'color'].values):
@@ -265,25 +347,26 @@ def plot_DEgenes(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
         ax.set_title(settings['labels']['environments'].get(environment, environment))
         ax.set_xlabel('number genes')
         
-        num_positives = degenes.loc[environment, :].reset_index().set_index('truth').loc[True].groupby('assembler')['num_genes'].sum().iloc[0]
+        num_positives = DEfeatures.loc[environment, :].reset_index().set_index('truth').loc[True].groupby('assembler')['num_genes'].sum().iloc[0]
         ax.axvline(x=num_positives, color=palette['True Positive'], label='Positive')
-        maxX = (degenes.loc[environment, :, 'True Positive']['num_genes'] + degenes.loc[environment, :, 'False Positive']['num_genes']).max()
-        for (ex_env, ex_ass) in [('seawater', 'Trinity'),
-                                ('freshwater', 'Trinity'),
-                                ('healthy_gut', 'dbg')]:
-            if environment == ex_env:
-                pdata = degenes.loc[environment, [ass for ass in degenes.loc[environment, :].index.levels[0] if ass != ex_ass], :]
+        maxX = (DEfeatures.loc[environment, :, 'True Positive']['num_genes'] + DEfeatures.loc[environment, :, 'False Positive']['num_genes']).max()
+        for (ex_forOrtho, ex_env, ex_ass) in [(False, 'seawater', 'Trinity'),
+                                              (False, 'freshwater', 'Trinity'),
+                                              (False, 'healthy_gut', 'dbg'),
+                                             ]:
+            if (ex_forOrtho == forOrthogroups) and (environment == ex_env):
+                pdata = DEfeatures.loc[environment, [ass for ass in DEfeatures.loc[environment, :].index.levels[0] if ass != ex_ass], :]
                 maxX = (pdata.loc[environment, :, 'True Positive']['num_genes'] + pdata.loc[environment, :, 'False Positive']['num_genes']).max()
 
-                ax.text(max(1, num_positives, maxX), list(order).index(ex_ass) + 0.35, '%i' % degenes.loc[environment, ex_ass, 'False Positive']['num_genes'],
+                ax.text(max(1, num_positives, maxX), list(order).index(ex_ass) + 0.35, '%i' % DEfeatures.loc[environment, ex_ass, 'False Positive']['num_genes'],
                         verticalalignment='center', horizontalalignment='right', color='white')
 
         # panel labels
         ax.text(-0.43, 1.05, chr(97+i), transform=ax.transAxes, fontsize=16, fontweight='bold',)
 
         ax.set_xlim((
-            -1.1 * max(1, degenes.loc[environment, :, 'False Negative']['num_genes'].max()),
-            1.1 * max(1, num_positives, maxX)))
+            -1.1 * max(1, DEfeatures.loc[environment, :, 'False Negative']['num_genes'].max()),
+             1.1 * max(1, num_positives, maxX)))
 
         if i+1 == len(environments):
             ax.legend(handles=[mpatches.Patch(color=palette[cls], label=cls) for cls in palette.keys()] + \
@@ -292,6 +375,7 @@ def plot_DEgenes(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
                       bbox_to_anchor=(-0.4, -0.25),
                       ncols=4)
     return fig
+
 
 def plot_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_basedir:str, settings, num_columns:int=3, verbose=True):
     # which environments to plot and in which order
