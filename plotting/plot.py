@@ -10,7 +10,7 @@ from matplotlib.lines import Line2D
 from matplotlib_venn import venn2
 import colorsys
 import seaborn as sns
-from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes, getdata_DEvennOrtho, getdata_DEorthogroups, get_recovered_contigs
+from compile_data import get_environments, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes, getdata_DEvennOrtho, getdata_DEorthogroups, get_recovered_contigs, getdata_rnaquast
 from tqdm import tqdm
 from scipy.cluster.hierarchy import linkage, leaves_list, dendrogram
 from scipy.spatial.distance import pdist, squareform
@@ -444,4 +444,60 @@ def plot_heatmap(fp_orb_basedir:str, settings, num_columns:int=3, verbose=True):
                 ax_dendro.get_position().height
                 ])
     
+    return fig
+
+
+def plot_rnaquast(fp_orb_basedir:str, fp_quast_basedir:str, settings, num_columns:int=3, verbose=True):
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+    
+    # load data
+    quast = getdata_rnaquast(fp_orb_basedir, fp_quast_basedir, settings)
+    data_recovery = getdata_recovery(fp_orb_basedir, settings, verbose)
+
+    fig, axes = plt.subplots(
+        int(np.ceil(len(environments) / num_columns)), 
+        num_columns * 2, figsize=(2 * num_columns * 4, np.ceil(len(environments) / num_columns) * 5),
+        gridspec_kw={"wspace": 0.31, "hspace": 0.3})
+
+    for i, environment in tqdm(enumerate(environments), disable=not verbose, desc='Draw RNAquast panels'):
+        order = list(data_recovery[data_recovery['environment'] == environment].sort_values(by='recovery_rank').index)
+        
+        # bad contigs
+        ax_bad = axes[i // num_columns, (i % num_columns) * 2]
+        sns.barplot(data=quast.loc[environment, :, 'Misassemblies'], x='score', y='assembler', ax=ax_bad, order=order,
+                    color=settings['contig_classes']['multi_mapped_contigs_multi_og']['color'])
+        ax_bad.invert_xaxis()
+        ax_bad.set_ylabel("")
+        ax_bad.set_xlabel("number contigs")
+        ax_bad.set_title(settings['labels']['environments'].get(environment, environment), loc='right', horizontalalignment='center')
+        ax_top_bad = ax_bad.twiny()
+        ax_top_bad.xaxis.set_label_position('top')
+        ax_top_bad.set_xticks([])
+        ax_top_bad.set_xlabel("weak")
+        ax_bad.xaxis.set_label_coords(1, -0.08)
+        ax_bad.text(-0.5, 1.05, chr(97+i), transform=ax_bad.transAxes, fontsize=16, fontweight='bold',)
+
+        ax_good = axes[i // num_columns, (i % num_columns) * 2 + 1]
+        sns.barplot(data=quast.loc[environment, :, '95%-assembled isoforms'], x='score', y='assembler', ax=ax_good, order=order,
+                    color=settings['contig_classes']['mapped_contigs']['color'])
+        ax_good.set_yticks([])
+        ax_good.set_xlabel("robust")
+        ax_good.xaxis.set_label_position('top')
+        ax_good.set_ylabel("")
+    
+        # concat right (=good) axis directly adjacent to left (=bad) axis
+        ax_good.set_position([
+            ax_bad.get_position().x1,
+            ax_good.get_position().y0,
+            ax_good.get_position().width,
+            ax_good.get_position().height])
+
+        # one legend for all panels
+        if i+1 == len(environments):
+         ax_good.legend(handles=[
+            mpatches.Patch(color=settings['contig_classes']['multi_mapped_contigs_multi_og']['color'], label='Misassemblies'),
+            mpatches.Patch(color=settings['contig_classes']['mapped_contigs']['color'], label='95%-assembled isoforms')],
+            ncol=2, bbox_to_anchor=(-1.8, -0.20))
+
     return fig

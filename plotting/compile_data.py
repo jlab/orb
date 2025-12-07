@@ -388,3 +388,18 @@ def getdata_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_ba
         data[environment] = truth
 
     return data
+
+
+def getdata_rnaquast(fp_orb_basedir:str, fp_quast_basedir:str, settings, verbose=True) -> pd.DataFrame:
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
+    data = []
+    for environment in tqdm(environments, disable=not verbose, desc='Compile RNAquast data'):
+        quast = pd.read_csv(join(fp_quast_basedir, environment, "short_report.tsv"), sep="\t", index_col=0)
+        quast.index.name = 'metric'
+        quast.columns = list(map(lambda x: settings['labels']['assemblers'].get(x.split('_contigs')[0], x), quast.columns))
+        quast = quast.stack().reset_index().rename(columns={'level_1': 'assembler', 0: 'score'})
+        quast['environment'] = environment
+        data.append(quast)
+    return pd.concat(data).set_index(['environment', 'assembler', 'metric'])
