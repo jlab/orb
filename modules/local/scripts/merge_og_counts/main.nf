@@ -1,4 +1,4 @@
-process CATEGORIZECONTIGS {
+process MERGE_OG_COUNTS {
     tag "$meta.id"
     label "process_medium"
     //conda "${moduleDir}/environment.yml"
@@ -7,11 +7,11 @@ process CATEGORIZECONTIGS {
     //container "quay.io/biocontainers/biopython:1.68--py35_0"
 
     input:
-    tuple val(meta), path(contig_ids), path(length_filtered_contig_ids), path(mapped_scores), path(mapped_chim_scores), path(assembler_mapping), path(gene_summary), path(contigs_fasta)
+    tuple val(meta), path(gene_summary)
 
     output:
-    tuple val(meta), path("${prefix}_contigs_categorised.tsv")           , emit: contig_categorisation
-    path  "versions.yml"                                                   , emit: versions
+    tuple val(meta), path("${prefix}_merged_orthogroups.tsv")            , emit: merged_orthogroups
+    path  "versions.yml"                                                 , emit: versions
 
 
     when:
@@ -23,8 +23,7 @@ process CATEGORIZECONTIGS {
     
     """
     pip install polars
-    categorize_contigs.py ${contig_ids} ${mapped_scores} ${mapped_chim_scores} ${length_filtered_contig_ids} \\
-                                                ${assembler_mapping} ${gene_summary} ${prefix}
+    merge_og_counts.py ${gene_summary} ${prefix}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

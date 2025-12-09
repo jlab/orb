@@ -1,6 +1,7 @@
 process MERGEQUANTSFFILES {
     tag "$meta.id"
     label "process_low"
+ //   cache false
 
     //conda "${moduleDir}/environment.yml"
     container "quay.io/biocontainers/pandas:2.2.1"

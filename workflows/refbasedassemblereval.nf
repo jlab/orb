@@ -487,12 +487,15 @@ workflow ASSEMBLEREVAL {
         reads_ref_ch.save_unaligned,
         reads_ref_ch.sort_bam
     )
+
+    /*
     
     REFEVAL(
         reference_cds_val,
         reads,
         BOWTIE2_ALIGN_REFERENCE.out.aligned
     )
+    */
 
     SORTDATAFRAME.out.dataframe.combine(
         DGEEVAL.out.eval

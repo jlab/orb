@@ -24,9 +24,6 @@ if os.path.exists(file_path) and os.path.getsize(file_path) == 0:
 
 minimap_results = pd.read_csv(file_path, sep="\t", header=None, usecols=[0, 5, 6, 9, 10])
 
-indices = pd.Index([])
-
-
 minimap_results["correctly_mapped_bases"] = minimap_results[9] / minimap_results[6]
 minimap_results["covered_reference"] = minimap_results[10] / minimap_results[6]
 
@@ -36,9 +33,26 @@ minimap_results = minimap_results[
     (minimap_results["covered_reference"] >= 0.95)
 ]
 
+indices = pd.Index([])
 
 for cds in minimap_results[minimap_results[5].duplicated()][5].unique():
     condition = (minimap_results[5] == cds)
+    max_value = max(minimap_results[condition][9])
+    new_indices = minimap_results.loc[condition & (minimap_results[9] < max_value)].index
+    if not new_indices.empty:
+        indices = indices.append(new_indices)
+    max_vals = (condition) & (minimap_results[9] == max_value)
+    logic_vals_sum = max_vals.sum()
+    if logic_vals_sum > 1:
+        indices = indices.append(minimap_results[max_vals].sample(n=logic_vals_sum - 1).index)
+
+minimap_results = minimap_results.drop(indices)
+minimap_results = minimap_results.reset_index()
+
+indices = pd.Index([])
+
+for cds in minimap_results[minimap_results[0].duplicated()][0].unique():
+    condition = (minimap_results[0] == cds)
     max_value = max(minimap_results[condition][9])
     new_indices = minimap_results.loc[condition & (minimap_results[9] < max_value)].index
     if not new_indices.empty:

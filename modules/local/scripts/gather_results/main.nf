@@ -5,7 +5,6 @@ process GATHERRESULTS {
     //TODO: create a custom container with pandas and jq
     container "quay.io/biocontainers/pandas:2.2.1"
     //container "quay.io/biocontainers/biopython:1.68--py35_0"
-    cache false
 
     input:
     tuple val(meta), path(contig_ids), path(length_filtered_contig_ids), path(mapped_scores), path(mapped_chim_scores), path(assembler_mapping), path(gene_summary), path(contigs_fasta)
