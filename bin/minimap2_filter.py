@@ -40,14 +40,13 @@ for cds in minimap_results[minimap_results[5].duplicated()][5].unique():
     max_value = max(minimap_results[condition][9])
     new_indices = minimap_results.loc[condition & (minimap_results[9] < max_value)].index
     if not new_indices.empty:
-        indices = indices.append(new_indices)
+        indices = indices.union(new_indices)
     max_vals = (condition) & (minimap_results[9] == max_value)
     logic_vals_sum = max_vals.sum()
     if logic_vals_sum > 1:
-        indices = indices.append(minimap_results[max_vals].sample(n=logic_vals_sum - 1).index)
+        indices = indices.union(minimap_results[max_vals].sample(n=logic_vals_sum - 1).index)
 
-minimap_results = minimap_results.drop(indices)
-minimap_results = minimap_results.reset_index()
+minimap_results = minimap_results.drop(indices).reset_index(drop=True)
 
 indices = pd.Index([])
 
@@ -56,11 +55,11 @@ for cds in minimap_results[minimap_results[0].duplicated()][0].unique():
     max_value = max(minimap_results[condition][9])
     new_indices = minimap_results.loc[condition & (minimap_results[9] < max_value)].index
     if not new_indices.empty:
-        indices = indices.append(new_indices)
+        indices = indices.union(new_indices)
     max_vals = (condition) & (minimap_results[9] == max_value)
     logic_vals_sum = max_vals.sum()
     if logic_vals_sum > 1:
-        indices = indices.append(minimap_results[max_vals].sample(n=logic_vals_sum - 1).index)
+        indices = indices.union(minimap_results[max_vals].sample(n=logic_vals_sum - 1).index)
 
 minimap_filtered = minimap_results.drop(indices)
 

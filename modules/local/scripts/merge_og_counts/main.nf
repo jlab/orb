@@ -3,8 +3,7 @@ process MERGE_OG_COUNTS {
     label "process_medium"
     //conda "${moduleDir}/environment.yml"
     //TODO: create a custom container with pandas and jq
-    container "quay.io/biocontainers/pandas:2.2.1"
-    //container "quay.io/biocontainers/biopython:1.68--py35_0"
+    container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
     tuple val(meta), path(gene_summary)
@@ -22,7 +21,6 @@ process MERGE_OG_COUNTS {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    pip install polars
     merge_og_counts.py ${gene_summary} ${prefix}
 
     cat <<-END_VERSIONS > versions.yml

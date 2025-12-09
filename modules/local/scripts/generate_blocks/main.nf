@@ -3,7 +3,7 @@ process GENERATEBLOCKS {
     label "process_high"
 
     //TODO: build custom python container for steps with required packages
-    container "quay.io/biocontainers/pandas:2.2.1"
+    container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
     tuple val(meta), path(merged_beds), path(reference)
@@ -22,7 +22,6 @@ process GENERATEBLOCKS {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    pip install biopython==1.83
     generate_blocks.py ${merged_beds} ${reference} ${dup_seqs} ${prefix} > ${prefix}.fa
 
     cat <<-END_VERSIONS > versions.yml

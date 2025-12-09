@@ -1,7 +1,7 @@
 process CALCULATECALOURCONFUSION {
     tag "$meta.id"
     label "process_medium"
-    container "quay.io/biocontainers/pandas:2.2.1"
+    container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
     tuple val(meta), path(dge_ass), path(mapping)
@@ -18,7 +18,6 @@ process CALCULATECALOURCONFUSION {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    pip install scikit-learn
     calculate_calour_confusion.py ${dge_ass} ${mapping} ${dge_ref} ${prefix}
     """
 }

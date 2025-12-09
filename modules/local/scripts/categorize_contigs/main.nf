@@ -2,9 +2,7 @@ process CATEGORIZECONTIGS {
     tag "$meta.id"
     label "process_medium"
     //conda "${moduleDir}/environment.yml"
-    //TODO: create a custom container with pandas and jq
-    container "quay.io/biocontainers/pandas:2.2.1"
-    //container "quay.io/biocontainers/biopython:1.68--py35_0"
+    container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
     tuple val(meta), path(contig_ids), path(length_filtered_contig_ids), path(mapped_scores), path(mapped_chim_scores), path(assembler_mapping), path(gene_summary), path(contigs_fasta)
@@ -22,7 +20,6 @@ process CATEGORIZECONTIGS {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    pip install polars
     categorize_contigs.py ${contig_ids} ${mapped_scores} ${mapped_chim_scores} ${length_filtered_contig_ids} \\
                                                 ${assembler_mapping} ${gene_summary} ${prefix}
 

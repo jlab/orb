@@ -3,7 +3,7 @@ process CALCULATEFINALSCORES {
     label "process_medium"
     //conda "${moduleDir}/environment.yml"
     //TODO: create a custom container with pandas and jq
-    container "quay.io/biocontainers/pandas:2.2.1"
+    container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
     tuple val(meta), path(merged_scores), path(blocks_df), path(chim_blocks_df)
