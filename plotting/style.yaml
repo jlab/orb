@@ -1,6 +1,7 @@
 # environments that are present as directories, but shall not be included into figures
 skip_environments:
   - 'fixed_insert'
+  - 'recovered_fix'
 
 contig_classes:
   mapped_contigs:

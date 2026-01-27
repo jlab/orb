@@ -99,7 +99,7 @@ def get_recovered_contigs(fp_orb_basedir:str, settings, verbose=True):
             
             contig_classes = pd.read_csv(fp_category, sep="\t", index_col=0)
             contig_classes.index = list(map(str, contig_classes.index))
-
+            print("test")
             contig_mappings = pd.read_csv(
                 join(fp_orb_basedir, environment, 'minimap2', '%s_mapping.tsv' % assembler), sep="\t", header=None, names=mapping_col_names, dtype={'Query sequence name': str}
                     ).sort_values(by=['Mapping quality', 'Number of matching bases in the mapping'], ascending=[False, False]  # sort hits by mapping quality AND number of involved matching bases
@@ -150,7 +150,7 @@ def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False, v
 
     recovered_genes = []
     for environment in tqdm(environments, disable=not verbose, desc='Compute sets of unique/shared/core genes for gene recovery plot'):
-        pd.set_option('future.no_silent_downcasting', True)
+        #pd.set_option('future.no_silent_downcasting', True)
         features = pd.concat(
             [pd.Series(
                 index=list(v['gene_name'].unique()),
@@ -256,7 +256,7 @@ def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
             # flag all remaining contigs as DE prediction
             prediction = prediction['padj'].apply(lambda x: x < 0.05).rename('prediction')
 
-            pd.set_option('future.no_silent_downcasting', True)
+            #pd.set_option('future.no_silent_downcasting', True)
             # combine assembled contigs with DE truth and prediction and count occurences
             conv = recovered_contigs[environment][assembler].merge(
                 truth, left_on='gene_name', right_index=True, how='outer').merge(
@@ -293,6 +293,7 @@ def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
 
     return confusion, recovered_contigs
 
+
 def getdata_DEorthogroups(fp_orb_basedir:str, fp_marbel_basedir:str, fp_ogtruth_basedir:str, settings, verbose=True):
     recovered_contigs = get_recovered_contigs(fp_orb_basedir, settings, verbose=True)
 
@@ -303,7 +304,6 @@ def getdata_DEorthogroups(fp_orb_basedir:str, fp_marbel_basedir:str, fp_ogtruth_
     for environment in tqdm(environments, disable=not verbose, desc='Compiling data for DE orthogroup plot'):
         # obtain orthogroup information about genes
         genes = pd.read_csv(join(fp_marbel_basedir, '%s_microbiome' % environment, "summary", "gene_summary.csv"), sep=",").set_index('gene_name')
-        
         fp_truth = join(fp_ogtruth_basedir, environment, '%s_DESeq2_full_table.tsv' % environment)
         truth = pd.read_csv(fp_truth, sep="\t", index_col=0)
         truth.index = list(map(str, truth.index))
@@ -318,7 +318,7 @@ def getdata_DEorthogroups(fp_orb_basedir:str, fp_marbel_basedir:str, fp_ogtruth_
 
             prediction = prediction['padj'].apply(lambda x: x < 0.05).rename('prediction')
 
-            pd.set_option('future.no_silent_downcasting', True)
+            # pd.set_option('future.no_silent_downcasting', True)
             conv = recovered_contigs[environment][assembler].merge(
                 genes[['orthogroup']], left_on='gene_name', right_index=True, how='left').merge(
                     truth, left_on='orthogroup', right_index=True, how='outer').merge(

@@ -22,48 +22,30 @@ if os.path.exists(file_path) and os.path.getsize(file_path) == 0:
     with open(f"{minimap_file_basename}_dedup.json", 'w') as json_file:
         json.dump({}, json_file)
 
-minimap_results = pd.read_csv(file_path, sep="\t", header=None, usecols=[0, 5, 6, 9, 10])
+minimap_results = pd.read_csv(file_path, sep="\t", header=None, usecols=[0, 1, 5, 6, 9, 10, 11])
 
 minimap_results["correctly_mapped_bases"] = minimap_results[9] / minimap_results[6]
+# -> "Number of matching bases in the mapping"/ "Target sequence length" (blocks are targets)
+# Rationale: Number of matching bases/ length of block -> block bases should be reconstructed
 minimap_results["covered_reference"] = minimap_results[10] / minimap_results[6]
+# -> "Number bases, including gaps, in the mapping"/ "Target sequence length" (blocks are targets)
+# Rationale: Length of alignment/ length of block -> length of block should be covered and not too many gaps
 
 minimap_results = minimap_results[minimap_results["correctly_mapped_bases"] >= 0.95]
 minimap_results = minimap_results[
-    (minimap_results["covered_reference"] <= 1.05) |
+    (minimap_results["covered_reference"] <= 1.05) &
     (minimap_results["covered_reference"] >= 0.95)
 ]
 
-indices = pd.Index([])
+# Select longest alignment by: Number of matching bases in the mapping
 
-for cds in minimap_results[minimap_results[5].duplicated()][5].unique():
-    condition = (minimap_results[5] == cds)
-    max_value = max(minimap_results[condition][9])
-    new_indices = minimap_results.loc[condition & (minimap_results[9] < max_value)].index
-    if not new_indices.empty:
-        indices = indices.union(new_indices)
-    max_vals = (condition) & (minimap_results[9] == max_value)
-    logic_vals_sum = max_vals.sum()
-    if logic_vals_sum > 1:
-        indices = indices.union(minimap_results[max_vals].sample(n=logic_vals_sum - 1).index)
+minimap_filtered = minimap_results.sort_values(by=[11, 9, 1], ascending=[False, False, True]  # sort hits by mapping quality AND number of involved matching bases AND query length (descending)
+            ).groupby([5], sort=False).head(1).groupby([0], sort=False).head(1) #first choose the most suitable contig for each block, then find the most suitable block for each contig
 
-minimap_results = minimap_results.drop(indices).reset_index(drop=True)
+if minimap_filtered[0].duplicated().any():
+    raise ValueError("Duplicate keys")
 
-indices = pd.Index([])
-
-for cds in minimap_results[minimap_results[0].duplicated()][0].unique():
-    condition = (minimap_results[0] == cds)
-    max_value = max(minimap_results[condition][9])
-    new_indices = minimap_results.loc[condition & (minimap_results[9] < max_value)].index
-    if not new_indices.empty:
-        indices = indices.union(new_indices)
-    max_vals = (condition) & (minimap_results[9] == max_value)
-    logic_vals_sum = max_vals.sum()
-    if logic_vals_sum > 1:
-        indices = indices.union(minimap_results[max_vals].sample(n=logic_vals_sum - 1).index)
-
-minimap_filtered = minimap_results.drop(indices)
-
-key_val_dict = dict(zip(minimap_filtered[0], minimap_filtered[5]))
+key_val_dict = minimap_filtered.set_index(0)[5].to_dict()
 
 with open(f"{minimap_file_basename}_dedup.json", "w") as f:
     json.dump(key_val_dict, f)

@@ -87,7 +87,11 @@ def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
         else:
             ax_good.legend().remove()
         ax_bad.legend().remove()
-
+        #TODO: print DF for check with orb base dir
+        print(environment)
+        if environment=="diseased_gut":
+            orb.loc[:, [c['label'] for _, c in settings['contig_classes'].items() if c['class'] != 'bad']].to_csv("data_cache/diseased_good.csv")
+            orb.loc[:, [c['label'] for _, c in settings['contig_classes'].items() if c['class'] == 'bad']].to_csv("data_cache/diseased_bad.csv")
     return fig
 
 
@@ -405,7 +409,7 @@ def plot_heatmap(fp_orb_basedir:str, settings, num_columns:int=3, verbose=True):
                 ])
             ax_heat.set_title("Jaccard distance")
             continue
-        pd.set_option('future.no_silent_downcasting', True)
+        #pd.set_option('future.no_silent_downcasting', True)
         if environment == 'all six environments':
             features = pd.concat(
                 [pd.concat(

@@ -59,8 +59,8 @@ include { QUAST as QUAST_ASSEMBLER    } from '../modules/nf-core/quast/main'
 include { QUAST as QUAST              } from '../modules/nf-core/quast/main'
 include { SALMON_INDEX                } from '../modules/local/salmon/index/main'
 include { SALMON_QUANT                } from '../modules/local/salmon/quant/main'
-include { MINIMAP2_MAP; MINIMAP2_MAP as MINIMAP2_MAP_CHIMERIC } from '../modules/local/minimap2/map/main'
-include { MINIMAP2FILTER; MINIMAP2FILTER as MINIMAP2_FILTER_CHIMERIC } from '../modules/local/scripts/minimap2dedup/main'
+include { MINIMAP2_MAP; MINIMAP2_MAP as MINIMAP2_MAP_OVERLAP } from '../modules/local/minimap2/map/main'
+include { MINIMAP2FILTER; MINIMAP2FILTER as MINIMAP2_FILTER_OVERLAP } from '../modules/local/scripts/minimap2dedup/main'
 include { BOWTIE2_BUILD; BOWTIE2_BUILD as BOWTIE2_BUILD_REFERENCE } from '../modules/nf-core/bowtie2/build/main'
 include { BOWTIE2_ALIGN; BOWTIE2_ALIGN as BOWTIE2_ALIGN_REFERENCE } from '../modules/nf-core/bowtie2/align/main'
 include { BEDTOOLS_BAMTOBED; BEDTOOLS_BAMTOBED as BEDTOOLS_BAMTOBED_REFERENCE } from '../modules/nf-core/bedtools/bamtobed/main'
@@ -79,7 +79,7 @@ include { SEQKIT_SEQ                  } from '../modules/nf-core/seqkit/seq/main
 include { SEQKIT_GREP                 } from '../modules/nf-core/seqkit/grep/main'
 include { GATHERRESULTS               } from '../modules/local/scripts/gather_results/main'
 include { CATEGORIZECONTIGS           } from '../modules/local/scripts/categorize_contigs/main'
-include { EXTRACTMAPPEDVALUES; EXTRACTMAPPEDVALUES as EXTRACTMAPPEDVALUES_CHIMERIC } from '../modules/local/jq/extract_values/main'
+include { EXTRACTMAPPEDVALUES; EXTRACTMAPPEDVALUES as EXTRACTMAPPEDVALUES_OVERLAP } from '../modules/local/jq/extract_values/main'
 include { EXTRACTIDS                  } from '../modules/local/scripts/extract_ids/main'
 include { CALCULATEFINALSCORES        } from '../modules/local/scripts/calculate_final_scores/main'
 include { CALCULATEREFERENCEINFO      } from '../modules/local/scripts/calculate_reference_info/main'
@@ -175,30 +175,30 @@ workflow ASSEMBLEREVAL {
 
     sample_assemblers.map {
         assembler ->
-        [["id":assembler.baseName.replace('_contigs', '_chimeric')], assembler]
+        [["id":assembler.baseName.replace('_contigs', '_overlap')], assembler]
     }
     .combine(overlap_blocks_ch)
     .multiMap { it ->
         contigs: tuple(it[0], it[1])
-        chimeric_blocks: tuple(it[2], it[3])
-    }.set{ contigs_chimeric_blocks }
+        overlap_blocks: tuple(it[2], it[3])
+    }.set{ contigs_overlap_blocks }
 
     
-    MINIMAP2_MAP_CHIMERIC(
-        contigs_chimeric_blocks.contigs,
-        contigs_chimeric_blocks.chimeric_blocks
+    MINIMAP2_MAP_OVERLAP(
+        contigs_overlap_blocks.contigs,
+        contigs_overlap_blocks.overlap_blocks
     )
 
-    ch_versions = ch_versions.mix(MINIMAP2_MAP_CHIMERIC.out.versions)
+    ch_versions = ch_versions.mix(MINIMAP2_MAP_OVERLAP.out.versions)
 
-    MINIMAP2_FILTER_CHIMERIC (
-        MINIMAP2_MAP_CHIMERIC.out.mapping
+    MINIMAP2_FILTER_OVERLAP (
+        MINIMAP2_MAP_OVERLAP.out.mapping
     )
 
-    ch_versions = ch_versions.mix(MINIMAP2_FILTER_CHIMERIC.out.versions)
+    ch_versions = ch_versions.mix(MINIMAP2_FILTER_OVERLAP.out.versions)
 
-    MINIMAP2_FILTER_CHIMERIC.out.map.map {
-        [["id":it[0]["id"].replace('_chimeric', '')], it[1]]
+    MINIMAP2_FILTER_OVERLAP.out.map.map {
+        [["id":it[0]["id"].replace('_overlap', '')], it[1]]
     }.set{ chimeric_mapping }
 
     MINIMAP2FILTER.out.map.join(
@@ -297,11 +297,11 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES.out.versions)
 
-    EXTRACTMAPPEDVALUES_CHIMERIC (
-        MINIMAP2_FILTER_CHIMERIC.out.map
+    EXTRACTMAPPEDVALUES_OVERLAP (
+        MINIMAP2_FILTER_OVERLAP.out.map
     )
 
-    ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES_CHIMERIC.out.versions)
+    ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES_OVERLAP.out.versions)
 
     assembler_contigs.join(
         SEQKIT_GREP.out.filter
@@ -318,8 +318,8 @@ workflow ASSEMBLEREVAL {
     EXTRACTIDS.out.contig_ids.join(
         EXTRACTMAPPEDVALUES.out.values
     ).join(
-        EXTRACTMAPPEDVALUES_CHIMERIC.out.values.map {
-            [["id":it[0]["id"].replace('_chimeric', '')], it[1]]
+        EXTRACTMAPPEDVALUES_OVERLAP.out.values.map {
+            [["id":it[0]["id"].replace('_overlap', '')], it[1]]
         }
     ).join(
         STACKDATAFRAMES.out.stacked_dfs
