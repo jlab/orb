@@ -25,7 +25,7 @@ import polars as pl
 
 all_contig_ids_fl = sys.argv[1] # "/vol/jlab/tlin/no_backup/nextflow_workdir/00/40ed8ff06c8b8b7cc7997b34a4eb99/rnaspades_contigs_ids.txt"
 
-mapped_ids_fl = sys.argv[2] # "/vol/jlab/tlin/no_backup/nextflow_workdir/42/62113b3dfc94ec10187ea81edf48a0/rnaspades_values.txt"
+minimap2_categories_fl = sys.argv[2] # "/vol/jlab/tlin/no_backup/nextflow_workdir/42/62113b3dfc94ec10187ea81edf48a0/rnaspades_values.txt"
 
 chimeric_mapped_ids_fl = sys.argv[3] # "/vol/jlab/tlin/no_backup/nextflow_workdir/b7/51144ac49d14bec67d7b2a21adbda3/rnaspades_chimeric_values.txt"
 
@@ -40,7 +40,8 @@ prefix = sys.argv[7] # "rnaspades"
 all_contigs_ids = pl.read_csv(all_contig_ids_fl, has_header=False, new_columns=["contigs"])
 
 try:
-    mapped_ids = pl.read_csv(mapped_ids_fl, has_header=False, new_columns=["mapped"])["mapped"].to_list()
+    minimap2_categories = pl.read_csv(minimap2_categories_fl, separator="\t")
+    mapped_ids = minimap2_categories["contig"].to_list()
 except (pl.exceptions.NoDataError, OSError):
     mapped_ids = []
 
@@ -117,4 +118,14 @@ contigs_with_cat = all_contigs_ids.with_columns([
       .alias("category")
 ])
 
-contigs_with_cat.write_csv(f"{prefix}_contigs_categorised.tsv", separator="\t")
+contigs_with_cat_no_mapped = contigs_with_cat.filter(
+    pl.col("category") != "mapped_contigs"
+)  
+
+print("before concat")
+
+result = pl.concat(
+    [contigs_with_cat_no_mapped, minimap2_categories.select(["contig", "category"]).rename({"contig":"contigs"})], how="vertical"
+)
+
+result.write_csv(f"{prefix}_contigs_categorised.tsv", separator="\t")

@@ -60,7 +60,9 @@ include { QUAST as QUAST              } from '../modules/nf-core/quast/main'
 include { SALMON_INDEX                } from '../modules/local/salmon/index/main'
 include { SALMON_QUANT                } from '../modules/local/salmon/quant/main'
 include { MINIMAP2_MAP; MINIMAP2_MAP as MINIMAP2_MAP_OVERLAP } from '../modules/local/minimap2/map/main'
-include { MINIMAP2FILTER; MINIMAP2FILTER as MINIMAP2_FILTER_OVERLAP } from '../modules/local/scripts/minimap2dedup/main'
+//include { MINIMAP2FILTER; MINIMAP2FILTER as MINIMAP2_FILTER_OVERLAP } from '../modules/local/scripts/minimap2dedup/main'
+include { MINIMAP2CLASSIFICATION } from '../modules/local/scripts/minimap2classification/main'
+include { MINIMAP2OVERLAPSELECTION } from '../modules/local/scripts/minimap2overlapselection/main'
 include { BOWTIE2_BUILD; BOWTIE2_BUILD as BOWTIE2_BUILD_REFERENCE } from '../modules/nf-core/bowtie2/build/main'
 include { BOWTIE2_ALIGN; BOWTIE2_ALIGN as BOWTIE2_ALIGN_REFERENCE } from '../modules/nf-core/bowtie2/align/main'
 include { BEDTOOLS_BAMTOBED; BEDTOOLS_BAMTOBED as BEDTOOLS_BAMTOBED_REFERENCE } from '../modules/nf-core/bedtools/bamtobed/main'
@@ -71,7 +73,6 @@ include { MERGEALLLOGS                } from '../modules/local/scripts/merge_all
 include { SUMMARIZEMAPPINGSTATS       } from '../modules/local/scripts/summarizemapping/main'
 include { MERGEDATAFRAMES as MERGEDATAFRAMESMAPPING; MERGEDATAFRAMES as MERGEDATAFRAMECONTIG;
 MERGEDATAFRAMES as MERGEDATAFRAMESSUMMARIES } from '../modules/local/scripts/merge_dataframes/main'
-include { GENERATEBLOCKS              } from '../modules/local/scripts/generate_blocks/main'
 include { STACKDATAFRAMES; STACKDATAFRAMES as STACKDATAFRAMES_REFERENCE } from '../modules/local/scripts/stack_dataframes/main'
 include { SEQKIT_RMDUP                } from '../modules/nf-core/seqkit/rmdup/main'
 include { EXTRACTMAPPEDIDS            } from '../modules/local/scripts/extract_mapped_ids/main'
@@ -85,7 +86,7 @@ include { CALCULATEFINALSCORES        } from '../modules/local/scripts/calculate
 include { CALCULATEREFERENCEINFO      } from '../modules/local/scripts/calculate_reference_info/main'
 include { MAKEHISTOGRAMS              } from '../modules/local/scripts/make_histograms/main'
 include { SORTDATAFRAME                } from '../modules/local/scripts/sort_dataframe/main'
-include { STACKDATAFRAMESWITHHEADER as MERGEDRESULTS } from '../modules/local/scripts/stack_dataframes_with_header/main'
+include { STACKDATAFRAMESWITHHEADER as MERGEDRESULTS; STACKDATAFRAMESWITHHEADER as STACKSCORES } from '../modules/local/scripts/stack_dataframes_with_header/main'
 
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -128,8 +129,6 @@ workflow ASSEMBLEREVAL {
         [["id": assembler.baseName.replace('_contigs', '')], assembler]
     }.set{ assembler_contigs }
 
-    
-
     SEQKIT_RMDUP(
         reference_cds_val
     )
@@ -167,15 +166,27 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
 
-    MINIMAP2FILTER (
-        MINIMAP2_MAP.out.mapping
+    MINIMAP2_MAP.out.mapping.join(
+        assembler_contigs
+    ).combine(
+        gene_summary
+    ).set { mapping_contigs_gene_summary }
+
+    MINIMAP2CLASSIFICATION(
+        mapping_contigs_gene_summary
     )
 
     ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
 
-    sample_assemblers.map {
+    /*
+       sample_assemblers.map {
         assembler ->
         [["id":assembler.baseName.replace('_contigs', '_overlap')], assembler]
+    }
+    */
+
+    assembler_contigs.map {
+        [["id":it[0]["id"] + "_overlap"], it[1]]
     }
     .combine(overlap_blocks_ch)
     .multiMap { it ->
@@ -183,7 +194,6 @@ workflow ASSEMBLEREVAL {
         overlap_blocks: tuple(it[2], it[3])
     }.set{ contigs_overlap_blocks }
 
-    
     MINIMAP2_MAP_OVERLAP(
         contigs_overlap_blocks.contigs,
         contigs_overlap_blocks.overlap_blocks
@@ -191,18 +201,24 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(MINIMAP2_MAP_OVERLAP.out.versions)
 
-    MINIMAP2_FILTER_OVERLAP (
-        MINIMAP2_MAP_OVERLAP.out.mapping
+    MINIMAP2_MAP_OVERLAP.out.mapping.join(
+        assembler_contigs.map {
+            [["id":it[0]["id"] + "_overlap"], it[1]]
+        }
+    ).set { overlap_mapping_contigs }
+
+    MINIMAP2OVERLAPSELECTION (
+        overlap_mapping_contigs
     )
 
-    ch_versions = ch_versions.mix(MINIMAP2_FILTER_OVERLAP.out.versions)
+    ch_versions = ch_versions.mix(MINIMAP2OVERLAPSELECTION.out.versions)
 
-    MINIMAP2_FILTER_OVERLAP.out.map.map {
+    MINIMAP2OVERLAPSELECTION.out.map.map {
         [["id":it[0]["id"].replace('_overlap', '')], it[1]]
-    }.set{ chimeric_mapping }
+    }.set{ overlap_mapping }
 
-    MINIMAP2FILTER.out.map.join(
-        chimeric_mapping
+    MINIMAP2CLASSIFICATION.out.map.join(
+        overlap_mapping
     ).set { all_mapping }
 
     EXTRACTMAPPEDIDS(
@@ -210,7 +226,6 @@ workflow ASSEMBLEREVAL {
     )
 
     ch_versions = ch_versions.mix(EXTRACTMAPPEDIDS.out.versions)
-
 
     sample_assemblers.map {
         assembler ->
@@ -292,13 +307,13 @@ workflow ASSEMBLEREVAL {
     ch_versions = ch_versions.mix(STACKDATAFRAMES.out.versions)
 
     EXTRACTMAPPEDVALUES(
-        MINIMAP2FILTER.out.map
+        MINIMAP2CLASSIFICATION.out.map
     )
 
     ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES.out.versions)
 
     EXTRACTMAPPEDVALUES_OVERLAP (
-        MINIMAP2_FILTER_OVERLAP.out.map
+        MINIMAP2OVERLAPSELECTION.out.map
     )
 
     ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES_OVERLAP.out.versions)
@@ -316,7 +331,7 @@ workflow ASSEMBLEREVAL {
     ch_versions = ch_versions.mix(EXTRACTIDS.out.versions)
 
     EXTRACTIDS.out.contig_ids.join(
-        EXTRACTMAPPEDVALUES.out.values
+        MINIMAP2CLASSIFICATION.out.categories
     ).join(
         EXTRACTMAPPEDVALUES_OVERLAP.out.values.map {
             [["id":it[0]["id"].replace('_overlap', '')], it[1]]
@@ -340,8 +355,20 @@ workflow ASSEMBLEREVAL {
     )
 
     ch_versions = ch_versions.mix(CATEGORIZECONTIGS.out.versions)
+    
+    GATHERRESULTS.out.scores.mix(
+        MINIMAP2CLASSIFICATION.out.category_counts
+    ).mix(
+        MINIMAP2OVERLAPSELECTION.out.n_counts.map {
+            [["id":it[0]["id"].replace('_overlap', '')], it[1]]
+        }
+    ).groupTuple().set { joined_scores }
 
-    GATHERRESULTS.out.scores.map {
+    STACKSCORES(
+        joined_scores
+    )
+
+    STACKSCORES.out.stacked_dfs.map {
         [it[1]]
     }.collect()
     .map {
@@ -460,7 +487,7 @@ workflow ASSEMBLEREVAL {
         EXTRACTMAPPEDIDS.out.mapped_ids,
         reads,
         gene_summary_prefix,
-        MINIMAP2FILTER.out.map,
+        MINIMAP2CLASSIFICATION.out.map,
         ch_versions
     )
 
