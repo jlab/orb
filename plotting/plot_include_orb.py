@@ -10,14 +10,15 @@ from matplotlib.lines import Line2D
 from matplotlib_venn import venn2
 import colorsys
 import seaborn as sns
-from compile_data_orb import get_environments, getdata_DEgenes_mod, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEgenes, getdata_DEvennOrtho, getdata_DEorthogroups, get_recovered_contigs, getdata_rnaquast
+from compile_data_orb import get_environments, getdata_DEgenes_mod, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEvennOrtho, getdata_DEorthogroups_mod, get_recovered_contigs, getdata_rnaquast, getdata_block_recovery, get_contigs, filter_for_assembler_with_ns
 from tqdm import tqdm
 from scipy.cluster.hierarchy import linkage, leaves_list, dendrogram
 from scipy.spatial.distance import pdist, squareform
 from skbio.stats.distance import DistanceMatrix
+from statannotations.Annotator import Annotator
 
 
-def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
+def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True, detail_view=False):
     """Plots contig recovery.
     
     Parameters
@@ -40,21 +41,29 @@ def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
     """
     # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
-    # load data
-    data_recovery = getdata_recovery(fp_orb_basedir, settings, verbose)
-    
+    # load dataf
+    if detail_view:
+        data_recovery = getdata_recovery(fp_orb_basedir, settings, detail_view=detail_view, verbose=verbose)
+    else:
+        data_recovery = getdata_recovery(fp_orb_basedir, settings, verbose=verbose)
+
     fig, axes = plt.subplots(
         int(np.ceil(len(environments) / num_columns)), 
         num_columns * 2, figsize=(2 * num_columns * 4, np.ceil(len(environments) / num_columns) * 5),
         gridspec_kw={"wspace": 0.31, "hspace": 0.3})
     
+    if detail_view:
+        view_class = "contig_classes"
+    else:
+        view_class = "simplelabels"
+
     for i, environment in tqdm(enumerate(environments), disable=not verbose, desc='Drawing panels for contig recovery plot'):
         orb = data_recovery[data_recovery['environment'] == environment]
 
         # bad contigs
         ax_bad = axes[i // num_columns, (i % num_columns) * 2]
         ax_bad.invert_xaxis()
-        orb.loc[:, [c['label'] for _, c in settings['contig_classes'].items() if c['class'] == 'bad']].plot(kind='barh', stacked=True, ax=ax_bad, color={c['label']: c['color'] for _, c in settings['contig_classes'].items()})
+        orb.loc[:, [c['label'] for _, c in settings[view_class].items() if c['class'] == 'bad']].plot(kind='barh', stacked=True, ax=ax_bad, color={c['label']: c['color'] for _, c in settings['contig_classes'].items()})
         ax_bad.set_xlabel("number contigs")
         ax_top_bad = ax_bad.twiny()
         ax_top_bad.xaxis.set_label_position('top')
@@ -65,7 +74,7 @@ def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
 
         # good contigs
         ax_good = axes[i // num_columns, (i % num_columns) * 2  + 1]
-        orb.loc[:, [c['label'] for _, c in settings['contig_classes'].items() if c['class'] != 'bad']].plot(kind='barh', stacked=True, ax=ax_good, color={c['label']: c['color'] for _, c in settings['contig_classes'].items()})
+        orb.loc[:, [c['label'] for _, c in settings[view_class].items() if (c['class'] == 'good') or (c['class'] == 'neutral')]].plot(kind='barh', stacked=True, ax=ax_good, color={c['label']: c['color'] for _, c in settings['contig_classes'].items()})
         ax_good.set_yticks([])
         ax_good.set_xlabel("robust")
         ax_good.xaxis.set_label_position('top')
@@ -83,15 +92,26 @@ def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True):
         if i+1 == len(environments):
             handles = ax_good.get_legend_handles_labels()[0] + list(reversed(ax_bad.get_legend_handles_labels()[0]))
             labels = ax_good.get_legend_handles_labels()[1] + list(reversed(ax_bad.get_legend_handles_labels()[1]))
+            # if seperate position for label is provided in style yaml use it
+            first_elem = list(settings[view_class].keys())[0]
+            if "legend_position" in settings[view_class][first_elem]:
+                sorted_labels = []
+                for i in range(len(settings[view_class])):
+                    label = [c['label'] for c in settings[view_class].values() if c['legend_position'] == i]
+                    if len(label) != 1:
+                        print("Fatal error: legend positions do not match ordered numbered of labels, check style.yaml")
+                        return
+                    sorted_labels.append(label[0])
+                sorted_handels = []
+                for label in sorted_labels:
+                    sorted_handels.append(handles[labels.index(label)])
+                handles = sorted_handels
+                labels = sorted_labels
             ax_good.legend(handles, labels, ncol=8, bbox_to_anchor=(-0.1, -0.20))
         else:
             ax_good.legend().remove()
         ax_bad.legend().remove()
         #TODO: print DF for check with orb base dir
-        print(environment)
-        if environment=="diseased_gut":
-            orb.loc[:, [c['label'] for _, c in settings['contig_classes'].items() if c['class'] != 'bad']].to_csv("data_cache_orb/diseased_good.csv")
-            orb.loc[:, [c['label'] for _, c in settings['contig_classes'].items() if c['class'] == 'bad']].to_csv("data_cache_orb/diseased_bad.csv")
     return fig
 
 
@@ -231,16 +251,15 @@ def get_rank_shifts(ranksA: pd.Series, ranksB: pd.Series, mergeAssembler={'idba'
 
 def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, fp_marbel_basedir:str=None, fp_ogtruth_basedir:str=None, num_columns:int=3, verbose=True):
     # which environments to plot and in which order
-    print("test")
     environments = get_environments(fp_orb_basedir, settings)
     
     # load data
-    DEfeatures, _ = getdata_DEgenes_mod(fp_orb_basedir, settings, verbose)
+    DEfeatures = getdata_DEgenes_mod(fp_orb_basedir, settings, verbose)
     if forOrthogroups is False:
-        rank_data = getdata_recovery(fp_orb_basedir, settings, verbose)
+        rank_data = getdata_recovery(fp_orb_basedir, settings, verbose=verbose)
     else:
         rank_data = DEfeatures.loc[:, :, 'True Positive']['rank'].reset_index().rename(columns={'rank': 'recovery_rank'}).set_index('assembler').copy()
-        DEfeatures, _ = getdata_DEorthogroups(fp_orb_basedir, fp_marbel_basedir, fp_ogtruth_basedir, settings)
+        DEfeatures = getdata_DEorthogroups_mod(fp_orb_basedir, settings)
 
     fig, axes = plt.subplots(
         int(np.ceil(len(environments) / num_columns)), 
@@ -283,7 +302,7 @@ def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, fp_marbel_based
         maxX = (DEfeatures.loc[environment, :, 'True Positive']['num_genes'] + DEfeatures.loc[environment, :, 'False Positive']['num_genes']).max()
         for (ex_forOrtho, ex_env, ex_ass) in [(False, 'seawater', 'Trinity'),
                                               (False, 'freshwater', 'Trinity'),
-                                              (False, 'healthy_gut', 'dbg'),
+                                              (True, 'healthy_gut', 'rnaSPAdes')
                                              ]:
             if (ex_forOrtho == forOrthogroups) and (environment == ex_env):
                 pdata = DEfeatures.loc[environment, [ass for ass in DEfeatures.loc[environment, :].index.levels[0] if ass != ex_ass], :]
@@ -308,12 +327,12 @@ def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, fp_marbel_based
     return fig
 
 
-def plot_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_basedir:str, settings, num_columns:int=3, verbose=True):
+def plot_DEvennOrtho(fp_orb_basedir:str, fp_marbel_basedir:str, settings, num_columns:int=3, verbose=True):
     # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
 
     # get data
-    truth = getdata_DEvennOrtho(fp_orb_basedir, fp_ogtruth_basedir, fp_marbel_basedir, settings)
+    truth = getdata_DEvennOrtho(fp_orb_basedir, fp_marbel_basedir, settings)
 
     fig, axes = plt.subplots(
         3,
@@ -391,15 +410,24 @@ def plot_heatmap(fp_orb_basedir:str, settings, num_columns:int=3, verbose=True):
         gridspec_kw={"hspace": 0.6, "wspace": 0.6}
     )
 
+    skipped_d = False
+
     for i, environment in tqdm(enumerate(ext_environments), disable=not verbose, desc='Compute heatmap'):
         col = i % num_columns
         row = i // num_columns
         ax_dendro = axes[row * 2 + 0, col]
         ax_heat = axes[row * 2 + 1, col]
         
-        # panel labels
-        ax_dendro.text(-0.33, 1.05, chr(97+i), transform=ax_dendro.transAxes, fontsize=16, fontweight='bold',)
 
+        # skip panel d for jaccard index
+        if i == 3:    
+            pass
+        else:
+            if i > 3:
+                i -= 1
+            # panel labels
+            ax_dendro.text(-0.33, 1.05, chr(97+i), transform=ax_dendro.transAxes, fontsize=16, fontweight='bold',)
+        
         if environment == 'colormap':
             ax_dendro.axis("off")
             ax_heat.set_position([
@@ -458,7 +486,7 @@ def plot_rnaquast(fp_orb_basedir:str, fp_quast_basedir:str, settings, num_column
     
     # load data
     quast = getdata_rnaquast(fp_orb_basedir, fp_quast_basedir, settings)
-    data_recovery = getdata_recovery(fp_orb_basedir, settings, verbose)
+    data_recovery = getdata_recovery(fp_orb_basedir, settings, verbose=verbose)
 
     fig, axes = plt.subplots(
         int(np.ceil(len(environments) / num_columns)), 
@@ -505,4 +533,122 @@ def plot_rnaquast(fp_orb_basedir:str, fp_quast_basedir:str, settings, num_column
             mpatches.Patch(color=settings['contig_classes']['mapped_contigs']['color'], label='95%-assembled isoforms')],
             ncol=2, bbox_to_anchor=(-1.8, -0.20))
 
+    return fig
+
+
+def plot_block_correlation(fp_orb_basedir, fp_marbel_basedir, sequence_file, settings, field, test = 'Mann-Whitney-gt'):
+    environments = get_environments(fp_orb_basedir, settings)
+
+    fig, axes = plt.subplots(2, int(len(environments)/2), 
+                                figsize=(len(environments)/2*4, 2*4),
+                                gridspec_kw={"wspace": 0.81, "hspace": 0.4}
+                            )
+    axes = axes.flatten()
+    hue_order = ['recovered', 'missed']
+    verbose = False
+    data_block_recovery = getdata_block_recovery(fp_orb_basedir, fp_marbel_basedir, sequence_file, settings, verbose=verbose)
+    assemblers = settings['labels']['assemblers']
+    # 'Mann-Whitney', 't-test_ind', 'Wilcoxon'
+    logscale = False
+    for i, environment in tqdm(enumerate(environments), disable=not verbose, desc=f'Drawing panels for {field} plot'):
+        ax = axes[i]
+        plotdata = data_block_recovery[environment]
+        print(plotdata.columns)
+        # assembler
+        ordered_assembler = sorted(list(plotdata["assembler"].unique()))
+        if field == 'block_length':
+            plotdata = plotdata[plotdata[field] > settings["read_length"]]
+
+        sns.boxplot(data=plotdata, orient='h', y='assembler', x=field, hue='category', ax=ax, palette={'recovered': 'lightgreen', 'missed': '#dddddd'},
+                    showfliers=False, 
+                    hue_order=hue_order, order=ordered_assembler)
+
+        if logscale:
+            ax.set_xscale('log')
+        if environment != settings["environment_for_legend_display"]:
+            ax.legend().remove()
+        else:
+            ax.legend(bbox_to_anchor=(1.1, 0.95), title='blocks')
+        #fix_ass_labels(ax, dimension='Y')
+        ax.set_ylabel("")
+        ax.set_xlabel({'read_mean_count': 'coverage: mean read number',
+                        'block_length': 'block length (bps)',
+                        'mean_identity': 'sequence similarity'}.get(field, field))
+
+        annotator = Annotator(ax, [((assembler, 'recovered'), (assembler, 'missed')) for assembler in ordered_assembler],
+                                data=plotdata, x=field, y='assembler', hue='category', orient='h', hue_order=hue_order, order=ordered_assembler)
+        annotator.configure(test=test, text_format='star', loc='inside', comparisons_correction="fdr_bh", correction_format="default")
+        testres = annotator.apply_and_annotate()
+
+        # gather mean values with expections of those assembler that yield no sig. difference
+        except_assembler = [
+            it.structs[0]['group'][0]
+            for it in testres[1] 
+            if it.data._corrected_significance is False]
+        if len(except_assembler) == len(ordered_assembler):
+            except_assembler = []
+        mean_field_diff = data_block_recovery[environment].sort_values(['assembler']).set_index(['assembler']).loc[[a for a in ordered_assembler if a not in except_assembler], :].groupby('category')[field].median()
+
+        ax.set_title(settings['labels']['environments'].get(environment, environment))
+        ax_top = ax.twiny()
+        ax_top.set_xticks([])
+        ax_top.set_xlabel('⌀ recovered ~ %.2f, ⌀ missed ~ %.2f' % (mean_field_diff.loc['recovered'], mean_field_diff['missed']))
+        ax.text(-0.43, 1.05, chr(97+i), transform=ax.transAxes, fontsize=16, fontweight='bold',)
+
+        if (field == 'block_length') and (logscale is False):
+            ax.set_xticks([0,  100, 200, 300, 400,  500,   1000,   2000,   3000], labels=["0", "",  "",  "",  "", "500", "1000", "2000", "3000"])
+    return fig
+
+
+def plot_nruns(fp_orb_basedir, settings, verbose=True):
+    sns.set_style("ticks")
+    environments = get_environments(fp_orb_basedir, settings)
+
+    fig, axes = plt.subplots(2, len(environments), 
+                            figsize=(len(environments)*4, 2*2),
+                            gridspec_kw={"wspace": 0.31, "hspace": 0.9}
+                            )
+    axes = axes.flatten()
+    contigs = filter_for_assembler_with_ns(fp_orb_basedir, settings)
+
+    for i, environment in tqdm(enumerate(environments), disable=not verbose, desc=f'Drawing panels for Ns plot'):
+        n_run_data = contigs[environment]
+        plot_data = n_run_data.groupby(['assembler', 'class', 'max_n_longer_read_length']).size().reset_index()
+        ax_bad = axes[i*2]
+        sns.barplot(data=plot_data[plot_data['class'] == 'missed'], y='assembler', x=0, hue='max_n_longer_read_length', ax=ax_bad)
+        ax_bad.set_xlim((0, plot_data[0].max()*1.1))
+        ax_bad.invert_xaxis()
+        ax_bad.set_ylabel("")
+        ax_bad.set_title(settings['labels']['environments'].get(environment, environment), loc='right', horizontalalignment='center')
+        # add panel label 
+        ax_bad.text(-0.5, 1.05, chr(97+i), transform=ax_bad.transAxes, fontsize=16, fontweight='bold',)
+        
+        ax_bad.set_xlabel("number contigs")
+        ax_bad.xaxis.set_label_coords(1, -0.3)
+        ax_top_bad = ax_bad.twiny()
+        ax_top_bad.set_xticks([])
+        ax_top_bad.set_xlabel("weak recovery")
+        
+        ax_good = axes[i*2+1]
+        sns.barplot(data=plot_data[plot_data['class'] != 'missed'], y='assembler', x=0, hue='max_n_longer_read_length', ax=ax_good)
+        ax_good.tick_params(left = False)
+        ax_good.set_yticks([])
+        ax_good.set_ylabel("")
+        ax_good.set_xlabel("robust recovery")
+        ax_good.xaxis.set_label_position('top')
+        ax_good.set_xlim((0, plot_data[0].max()*1.1))
+        
+        ax_good.set_position([
+            ax_bad.get_position().x1,
+            ax_good.get_position().y0,
+            ax_good.get_position().width,
+            ax_good.get_position().height
+            ])
+
+        # create one joined legend
+        if environment == settings["environment_for_legend_display"]:
+            ax_good.legend(bbox_to_anchor=(1.8, 1.0))
+        else:
+            ax_good.legend().remove()
+        ax_bad.legend().remove()
     return fig

@@ -178,16 +178,7 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
 
-    /*
-       sample_assemblers.map {
-        assembler ->
-        [["id":assembler.baseName.replace('_contigs', '_overlap')], assembler]
-    }
-    */
-
-    assembler_contigs.map {
-        [["id":it[0]["id"] + "_overlap"], it[1]]
-    }
+    assembler_contigs
     .combine(overlap_blocks_ch)
     .multiMap { it ->
         contigs: tuple(it[0], it[1])
@@ -203,7 +194,7 @@ workflow ASSEMBLEREVAL {
 
     MINIMAP2_MAP_OVERLAP.out.mapping.join(
         assembler_contigs.map {
-            [["id":it[0]["id"] + "_overlap"], it[1]]
+            [["id":it[0]["id"]], it[1]]
         }
     ).set { overlap_mapping_contigs }
 
@@ -213,12 +204,8 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(MINIMAP2OVERLAPSELECTION.out.versions)
 
-    MINIMAP2OVERLAPSELECTION.out.map.map {
-        [["id":it[0]["id"].replace('_overlap', '')], it[1]]
-    }.set{ overlap_mapping }
-
     MINIMAP2CLASSIFICATION.out.map.join(
-        overlap_mapping
+        MINIMAP2OVERLAPSELECTION.out.map
     ).set { all_mapping }
 
     EXTRACTMAPPEDIDS(
@@ -227,10 +214,7 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(EXTRACTMAPPEDIDS.out.versions)
 
-    sample_assemblers.map {
-        assembler ->
-        [["id":assembler.baseName.replace('_contigs', '')], assembler]
-    }.join(
+    assembler_contigs.join(
         EXTRACTMAPPEDIDS.out.mapped_ids
     ).multiMap { it ->
         contigs: tuple(it[0], it[1])
@@ -334,7 +318,7 @@ workflow ASSEMBLEREVAL {
         MINIMAP2CLASSIFICATION.out.categories
     ).join(
         EXTRACTMAPPEDVALUES_OVERLAP.out.values.map {
-            [["id":it[0]["id"].replace('_overlap', '')], it[1]]
+            [["id":it[0]["id"]], it[1]]
         }
     ).join(
         STACKDATAFRAMES.out.stacked_dfs
@@ -359,9 +343,7 @@ workflow ASSEMBLEREVAL {
     GATHERRESULTS.out.scores.mix(
         MINIMAP2CLASSIFICATION.out.category_counts
     ).mix(
-        MINIMAP2OVERLAPSELECTION.out.n_counts.map {
-            [["id":it[0]["id"].replace('_overlap', '')], it[1]]
-        }
+        MINIMAP2OVERLAPSELECTION.out.n_counts
     ).groupTuple().set { joined_scores }
 
     STACKSCORES(

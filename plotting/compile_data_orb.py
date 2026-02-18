@@ -6,6 +6,7 @@ import pandas as pd
 from tqdm import tqdm
 from scipy.spatial.distance import pdist, squareform
 import json
+from orthogroups_identity import calculate_og_seq_ident
 
 
 def get_environments(fp_orb_basedir:str, settings) -> [str]:
@@ -34,7 +35,8 @@ def get_environments(fp_orb_basedir:str, settings) -> [str]:
 
     return environments
 
-def getdata_recovery(fp_orb_basedir:str, settings, verbose=True) -> pd.DataFrame:
+
+def getdata_recovery(fp_orb_basedir:str, settings, detail_view=False, verbose=True) -> pd.DataFrame:
     """Collects data from Orb for contig recovery analysis.
     
     Parameters
@@ -65,10 +67,21 @@ def getdata_recovery(fp_orb_basedir:str, settings, verbose=True) -> pd.DataFrame
         # add information about missed blocks
         trueBlocks = pd.read_csv(join(fp_orb_basedir, environment, 'mergedataframessummaries', '%s_all_contigs.tsv' % environment), sep="\t", index_col=0).loc['count', ['Blocks']].sum()
         orb.loc['missed blocks', :] = trueBlocks - orb.loc[[c['label'] for _, c in settings['contig_classes'].items() if c['goodblockcount']], :].sum()
-        # select metrics for "recovery analysis"
-        orb = orb.loc[[c['label'] for _, c in settings['contig_classes'].items()], :]
-        # sort assembler by amount of good contigs
-        orb = orb[orb.loc[[c['label'] for _, c in settings['contig_classes'].items() if c['class'] == 'good']].sum().sort_values(ascending=True).index]
+        if detail_view:
+            # select metrics for "recovery analysis"
+            orb = orb.loc[[c['label'] for _, c in settings['contig_classes'].items()], :]
+            # sort assembler by amount of good contigs
+            orb = orb[orb.loc[[c['label'] for _, c in settings['contig_classes'].items() if c['class'] == 'good']].sum().sort_values(ascending=True).index]
+        else:
+            df = pd.DataFrame()
+            for key, value in settings["simplelabels"].items():
+                display_name = value["label"]
+                if display_name != "":
+                    s = orb.loc[[c['label'] for _, c in settings['contig_classes'].items() if c['simplelabel'] == key], :].sum()
+                    s.name = display_name
+                    df = pd.concat([df, s.to_frame().T])
+            orb = df
+            orb = orb[orb.loc[[c['label'] for _, c in settings['simplelabels'].items() if c['class'] == 'good']].sum().sort_values(ascending=True).index]
         # use pretty label for assembler
         orb = orb.rename(columns=settings['labels']['assemblers'])
         # transform axis: rows=assembler, cols=metrics+metadata
@@ -78,22 +91,8 @@ def getdata_recovery(fp_orb_basedir:str, settings, verbose=True) -> pd.DataFrame
         data.append(orb)
     return pd.concat(data)
 
-def get_recovered_contigs(fp_orb_basedir:str, settings, verbose=True):
-    print("test")
-    mapping_col_names = [
-                "Query sequence name",
-                "Query sequence length",
-                "Query start coordinate",
-                "Query end coordinate",
-                "same strand",
-                "block_id", #"Target sequence name",
-                "Target sequence length",
-                "Target start coordinate on the original strand",
-                "Target end coordinate on the original strand",
-                "Number of matching bases in the mapping",
-                "Number bases, including gaps, in the mapping",
-                "Mapping quality", "1", "2", "3", "4", "5", "6"]
 
+def get_recovered_contigs(fp_orb_basedir:str, settings, verbose=True):
     # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
 
@@ -101,13 +100,12 @@ def get_recovered_contigs(fp_orb_basedir:str, settings, verbose=True):
     for environment in tqdm(environments, disable=not verbose, desc='Compiling data for gene recovery plot'):
         recovered_contigs[environment] = dict()
         for fp_category in glob(join(fp_orb_basedir, environment, 'minimap2classification', '*_minimap2_categories.tsv')):
-            assembler = basename(fp_category).split('_contigs_categorised.tsv')[0]
+            assembler = basename(fp_category).split('_minimap2_categories.tsv')[0]
             contig_mappings = pd.read_csv(fp_category, sep="\t", index_col=0)
             contig_mappings["contig"] = contig_mappings["contig"].astype(str)
             contig_mappings = contig_mappings.set_index("contig")
 
-            contig_mappings["block_id"] = contig_mappings.index.map(mapping)
-            contig_mappings["block_id"].fillna('', inplace=True)
+        #    contig_mappings["block_id"].fillna('', inplace=True)
             # add a binary classification: singlerecovery and missed ...
             contig_mappings['class'] = contig_mappings['category'].apply(lambda x: 'singlerecovery' if x in [col for col, c in settings['contig_classes'].items() if c['singlerecovery']] else 'missed')
             # ... and keep only those in class "singlerecovery"
@@ -120,34 +118,7 @@ def get_recovered_contigs(fp_orb_basedir:str, settings, verbose=True):
 
 
 def getdata_gene_recovery(fp_orb_basedir:str, settings, full_gene_table=False, verbose=True) -> pd.DataFrame:
-    print("test")
     recovered_contigs = get_recovered_contigs(fp_orb_basedir, settings, verbose=True)
-    # recovered_contigs = dict()
-    # for environment in tqdm(environments, disable=not verbose, desc='Compiling data for gene recovery plot'):
-    #     recovered_contigs[environment] = dict()
-    #     for fp_category in glob(join(fp_orb_basedir, environment, 'categorizecontigs', '*_contigs_categorised.tsv')):
-    #         assembler = basename(fp_category).split('_contigs_categorised.tsv')[0]
-            
-    #         contig_classes = pd.read_csv(fp_category, sep="\t", index_col=0)
-    #         contig_classes.index = list(map(str, contig_classes.index))
-
-    #         contig_mappings = pd.read_csv(
-    #             join(fp_orb_basedir, environment, 'minimap2', '%s_mapping.tsv' % assembler), sep="\t", header=None, names=mapping_col_names, dtype={'Query sequence name': str}
-    #                 ).sort_values(by=['Mapping quality', 'Number of matching bases in the mapping'], ascending=[False, False]  # sort hits by mapping quality AND number of involved matching bases
-    #                     ).groupby(['Query sequence name']).head(1  # for every contig: pick only best hit
-    #                         ).groupby('block_id').head(1).merge(  # for every block: pick only best hit
-    #                             contig_classes, left_on=['Query sequence name'], right_index=True, how='left')  # merge Timo's contig categorization
-    #         # add a binary classification: good and missed ...
-    #         contig_mappings['class'] = contig_mappings['category'].apply(lambda x: 'good' if x in [col for col, c in settings['contig_classes'].items() if c['class'] == 'good'] else 'missed')
-    #         # ... and keep only those in class "good"
-    #         contig_mappings = contig_mappings[contig_mappings['class'] ==  'good']
-            
-    #         # derive gene name from block_id
-    #         contig_mappings['gene_name'] = contig_mappings['block_id'].apply(lambda x: x.split('_block')[0])        
-            
-    #         recovered_contigs[environment][assembler] = contig_mappings
-
-    # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
 
     recovered_genes = []
@@ -235,14 +206,12 @@ def getdata_runtime_memory(fp_caviar_basedir:str, settings, verbose=True):
     return timemem
 
 def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
-    print("test")
     recovered_contigs = get_recovered_contigs(fp_orb_basedir, settings, verbose=True)
 
     # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
 
     confusion = []
-    print("test")
 
     for environment in tqdm(environments, disable=not verbose, desc='Compiling data for DE gene plot'):
         fp_truth = join(fp_orb_basedir, environment, 'refdeseq2', '%s_DESeq2_full_table.tsv' % environment)
@@ -324,7 +293,6 @@ def getdata_DEgenes_mod(fp_orb_basedir: str, settings, verbose=True):
 
     for environment in tqdm(environments, disable=not verbose, desc='Compiling data for DE gene plot'):
         for fp_confusion in sorted(glob(join(fp_orb_basedir, environment, 'calculatedgeconfusiondeseq2', '*_linear_cm.tsv'))):
-            print("test")
             assembler = basename(fp_confusion).split('_linear_cm.tsv')[0].split('deseq2_')[-1]
             conv = pd.read_csv(fp_confusion, sep="\t", index_col=0)
             conv["class"] = conv.index.map(conversion_map)
@@ -353,7 +321,7 @@ def getdata_DEgenes_mod(fp_orb_basedir: str, settings, verbose=True):
             for rank in list(reversed(range(1, len(order) + 1)))
             for i in range(confusion.reset_index()['class'].unique().shape[0])]
 
-    return confusion, recovered_contigs
+    return confusion
 
 
 def getdata_DEorthogroups(fp_orb_basedir:str, fp_marbel_basedir:str, fp_ogtruth_basedir:str, settings, verbose=True):
@@ -421,7 +389,6 @@ def getdata_DEorthogroups(fp_orb_basedir:str, fp_marbel_basedir:str, fp_ogtruth_
 
 
 def getdata_DEorthogroups_mod(fp_orb_basedir: str, settings, verbose=True):
-    recovered_contigs = get_recovered_contigs(fp_orb_basedir, settings, verbose=True)
     conversion_map = {
             "deseq2_og_DE_TN": "True Negative",
             "deseq2_og_DE_FP": "False Positive",
@@ -444,7 +411,7 @@ def getdata_DEorthogroups_mod(fp_orb_basedir: str, settings, verbose=True):
     confusion = []
     for environment in tqdm(environments, disable=not verbose, desc='Compiling data for DE orthogroups plot'):
         for fp_confusion in sorted(glob(join(fp_orb_basedir, environment, 'calculateogconfusiondeseq2', '*_linear_cm.tsv'))):
-            assembler = basename(fp_confusion).split('_linear_cm.tsv')[0].split('deseq2_')[-1]
+            assembler = basename(fp_confusion).split('_linear_cm.tsv')[0].split('deseq2_og_')[-1]
             conv = pd.read_csv(fp_confusion, sep="\t", index_col=0)
             conv["class"] = conv.index.map(conversion_map)
             conv["truth"] = conv.index.map(conversion_map_truth_label)
@@ -469,10 +436,11 @@ def getdata_DEorthogroups_mod(fp_orb_basedir: str, settings, verbose=True):
             for rank in list(reversed(range(1, len(order) + 1)))
             for i in range(confusion.reset_index()['class'].unique().shape[0])]
 
-    return confusion, recovered_contigs
+    return confusion
 
 
-def getdata_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_basedir:str, settings, verbose=True) -> pd.DataFrame:
+# def getdata_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_basedir:str, settings, verbose=True) -> pd.DataFrame:
+def getdata_DEvennOrtho(fp_orb_basedir:str, fp_marbel_basedir:str, settings, verbose=True) -> pd.DataFrame:
     # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
 
@@ -491,14 +459,14 @@ def getdata_DEvennOrtho(fp_orb_basedir:str, fp_ogtruth_basedir:str, fp_marbel_ba
                             left_index=True, right_index=True, how='left')
 
         # obtain DE truth if genes are collapsed into orthogroups
-        fp_truth_OG = join(fp_ogtruth_basedir, environment, '%s_DESeq2_full_table.tsv' % environment)
+        fp_truth_OG = join(fp_orb_basedir, environment, "ogrefdeseq2", '%s_DESeq2_full_table.tsv' % environment)
         truthOG = pd.read_csv(fp_truth_OG, sep="\t", index_col=0)
         truthOG.index = list(map(str, truthOG.index))
         truth = truth.merge(truthOG, left_on='orthogroup', right_index=True, how='left', suffixes=('_gene', '_orthogroup'))
 
         # flag elements as DE
         for typ in ['gene', 'orthogroup']:
-            truth['DE%s' % typ] = truth['padj_%s' % typ] < 0.05
+            truth['DE%s' % typ] = (truth['padj_%s' % typ] < 0.05) & (truth[f'log2FoldChange_{typ}'].abs() > 1)
 
         data[environment] = truth
 
@@ -518,3 +486,96 @@ def getdata_rnaquast(fp_orb_basedir:str, fp_quast_basedir:str, settings, verbose
         quast['environment'] = environment
         data.append(quast)
     return pd.concat(data).set_index(['environment', 'assembler', 'metric'])
+
+
+def getdata_block_recovery(fp_orb_basedir:str, fp_marbel_basedir:str, sequence_file:str, settings, verbose=True):
+
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
+    recovered_blocks = dict()
+    #fix_ass_labels(ax, dimension='Y')
+
+    for environment in tqdm(environments, disable=not verbose, desc='Compiling data for DE orthogroup plot'):
+        # obtain orthogroup information about genes
+        blocks = pd.read_csv(join(fp_marbel_basedir, '%s_microbiome' % environment, "summary", "blocks.bed"), sep="\t", header=None, names=["gene", "start", "end", "block_name", "read_count"])
+        blocks['block_length'] = blocks['end'] - blocks['start']
+        blocks['Coverage'] = blocks['read_count'] * settings["read_length"] / blocks['block_length']
+        genes_to_og = pd.read_csv(join(fp_marbel_basedir, '%s_microbiome' % environment, "summary", "gene_summary.csv"), sep=",").set_index('gene_name')["orthogroup"].to_dict()
+        blocks["orthogroup"] = blocks['gene'].map(genes_to_og)
+        all_block_assignments = pd.DataFrame()
+        og_means = calculate_og_seq_ident(join(fp_marbel_basedir, '%s_microbiome' % environment, "summary", "gene_summary.csv"), sequence_file, environment)
+        og_means.set_index("og_name", inplace=True)
+        og_means_dict = og_means["mean_identity"].to_dict()
+        blocks["mean_identity"] = blocks["orthogroup"].map(og_means_dict)
+
+        for fp_map in glob(join(fp_orb_basedir, environment, 'minimap2classification', '*_recovered.json')):
+            assembler = basename(fp_map).split('_recovered.json')[0]
+            blocks_assembler = blocks.copy()
+            with open(fp_map, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            blocks_to_paths = {v: k for k, v in data.items()}
+            blocks_assembler["contigs"] = blocks_assembler["block_name"].map(blocks_to_paths)
+            blocks_assembler["is_recovered"] = ~blocks_assembler["contigs"].isna()
+            blocks_assembler['category'] = blocks_assembler['is_recovered'].map({True: "recovered", False: "missed"})
+            blocks_assembler["assembler"] = settings['labels']['assemblers'].get(assembler, assembler)
+            all_block_assignments = pd.concat([all_block_assignments, blocks_assembler], ignore_index=True)
+        
+
+        recovered_blocks[environment] = all_block_assignments
+
+    return recovered_blocks
+
+
+def get_contigs(fp_orb_basedir:str, settings, verbose=True):
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
+    recovered_contigs = dict()
+    for environment in tqdm(environments, disable=not verbose, desc='Compiling data for gene recovery plot'):
+        all_contigs = pd.DataFrame()
+
+        for fp_n_stats in glob(join(fp_orb_basedir, environment, 'minimap2classification', '*_contig_n_stats.tsv')):
+            assembler = basename(fp_n_stats).split('_contig_n_stats.tsv')[0]
+            
+            n_run_df = pd.read_csv(fp_n_stats, sep="\t", index_col=0)
+        
+            n_run_df.index = n_run_df.index.astype(str)
+
+            categories = pd.read_csv(join(fp_orb_basedir, environment, "categorizecontigs", f"{assembler}_contigs_categorised.tsv"), index_col=0, sep="\t")
+
+            categories.index = categories.index.astype(str)
+
+            categories['single_recovery'] = categories['category'].apply(lambda x: 'singlerecovery' if x in [col for col, c in settings['contig_classes'].items() if c['singlerecovery']] else 'missed')
+
+            categories['class'] = categories['category'].apply(lambda x: 'recovered' if x in [col for col, c in settings['contig_classes'].items() if c['class']=="good"] else 'missed')
+
+            contig_mappings = pd.merge(n_run_df, categories, left_index=True, right_index=True)
+
+            contig_mappings['assembler'] = settings['labels']['assemblers'].get(assembler, assembler)
+
+            all_contigs = pd.concat([all_contigs, contig_mappings], ignore_index=True)
+
+        recovered_contigs[environment] = all_contigs
+    return recovered_contigs
+
+
+def filter_for_assembler_with_ns(fp_orb_basedir:str, settings, verbose=True):
+    contigs = get_contigs(fp_orb_basedir, settings, verbose)
+    environments = get_environments(fp_orb_basedir, settings)
+    
+    for environment in tqdm(environments, disable=not verbose, desc='Compiling data for n plot'):
+        n_run_data = contigs[environment]
+        n_run_data = n_run_data[n_run_data["max_N_run"] > 0]
+        n_run_data = n_run_data.copy()
+        n_run_data["max_n_longer_read_length"] = (
+            n_run_data["max_N_run"] > settings["read_length"]
+        ).map({True: '> read length', False: '<= read length'})
+        contigs[environment] = n_run_data
+
+    return contigs
+
+
+def getsimple_recovery(fp_orb_basedir, settings, verbose):
+    data_recovery = getdata_recovery(fp_orb_basedir, settings)
+    
