@@ -249,7 +249,7 @@ def get_rank_shifts(ranksA: pd.Series, ranksB: pd.Series, mergeAssembler={'idba'
     return  cmp
 
 
-def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, fp_marbel_basedir:str=None, fp_ogtruth_basedir:str=None, num_columns:int=3, verbose=True):
+def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, num_columns:int=3, verbose=True):
     # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
     
@@ -300,14 +300,16 @@ def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, fp_marbel_based
         num_positives = DEfeatures.loc[environment, :].reset_index().set_index('truth').loc[True].groupby('assembler')['num_genes'].sum().iloc[0]
         ax.axvline(x=num_positives, color=palette['True Positive'], label='Positive')
         maxX = (DEfeatures.loc[environment, :, 'True Positive']['num_genes'] + DEfeatures.loc[environment, :, 'False Positive']['num_genes']).max()
-        for (ex_forOrtho, ex_env, ex_ass) in [(False, 'seawater', 'Trinity'),
-                                              (False, 'freshwater', 'Trinity'),
-                                              (True, 'healthy_gut', 'rnaSPAdes')
-                                             ]:
-            if (ex_forOrtho == forOrthogroups) and (environment == ex_env):
+        
+        if forOrthogroups:
+            shortening_dict = settings["de_image"]["orthogroup_assembler_shortening"]
+        else:
+            shortening_dict = settings["de_image"]["gene_assembler_shortening"]
+
+        for ex_env, ex_ass in shortening_dict.items():
+            if environment == ex_env:
                 pdata = DEfeatures.loc[environment, [ass for ass in DEfeatures.loc[environment, :].index.levels[0] if ass != ex_ass], :]
                 maxX = (pdata.loc[environment, :, 'True Positive']['num_genes'] + pdata.loc[environment, :, 'False Positive']['num_genes']).max()
-
                 ax.text(max(1, num_positives, maxX), list(order).index(ex_ass) + 0.35, '%i' % DEfeatures.loc[environment, ex_ass, 'False Positive']['num_genes'],
                         verticalalignment='center', horizontalalignment='right', color='white')
 
@@ -536,7 +538,8 @@ def plot_rnaquast(fp_orb_basedir:str, fp_quast_basedir:str, settings, num_column
     return fig
 
 
-def plot_block_correlation(fp_orb_basedir, fp_marbel_basedir, sequence_file, settings, field, test = 'Mann-Whitney-gt'):
+def plot_block_correlation(fp_orb_basedir, fp_marbel_basedir, sequence_file, settings, field, verbose=True, test = 'Mann-Whitney-gt'):
+    # field: block_length, read_mean_count, mean_identity, Coverage
     environments = get_environments(fp_orb_basedir, settings)
 
     fig, axes = plt.subplots(2, int(len(environments)/2), 
@@ -545,7 +548,6 @@ def plot_block_correlation(fp_orb_basedir, fp_marbel_basedir, sequence_file, set
                             )
     axes = axes.flatten()
     hue_order = ['recovered', 'missed']
-    verbose = False
     data_block_recovery = getdata_block_recovery(fp_orb_basedir, fp_marbel_basedir, sequence_file, settings, verbose=verbose)
     assemblers = settings['labels']['assemblers']
     # 'Mann-Whitney', 't-test_ind', 'Wilcoxon'

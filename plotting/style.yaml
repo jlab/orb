@@ -2,40 +2,153 @@
 skip_environments:
   - 'fixed_insert'
   - 'recovered_fix'
-
+# goodblockcount: is the block count used for missed blocks calclculation
+# singlerecovery: is the contig corresponding to a single recovery
 contig_classes:
-  mapped_contigs:
+  minimap2_single_recovered:
     class: good
     color: 'darkgreen'
     label: 'recovered'
+    goodblockcount: True 
+    singlerecovery: True
+    simplelabel: 'recovered'
   chimeric_mapped_contigs:
     class: good
     color: 'green'
     label: 'overlapping annotation'
+    goodblockcount: True
+    singlerecovery: False
+    simplelabel: 'recovered'
   multi_mapped_contigs_single_og:
     class: good
     color: 'lightgreen'
     label: 'orthologous recovered'
+    goodblockcount: True
+    singlerecovery: False
+    simplelabel: 'orthologous_recovered'
+  minimap2_merged_recovered:
+    class: good
+    color: 'aquamarine'
+    label: 'minimap2 merged recovered'
+    goodblockcount: False
+    singlerecovery: True
+    simplelabel: 'none'
+  minimap2_merged_recovered_blocks:
+    class: good_block
+    color: 'aquamarine'
+    label: 'minimap2 merged recovered blocks'
+    goodblockcount: True
+    singlerecovery: False
+    simplelabel: 'recovered'
+  minimap2_orthologous_recovered:
+    class: good
+    color: 'lime'
+    label: 'minimap2 orthologous recovered'
+    goodblockcount: False
+    singlerecovery: False
+    simplelabel: 'none'
+  minimap2_orthologous_recovered_blocks:
+    class: good_block
+    color: 'lime'
+    label: 'minimap2 orthologous recovered blocks'
+    goodblockcount: True
+    singlerecovery: False
+    simplelabel: 'orthologous_recovered'
   missed:
     class: neutral
     color: '#dddddd'
     label: 'missed blocks'
+    goodblockcount: False
+    singlerecovery: False
+    simplelabel: 'missed'
+  minimap2_chimeric:
+    class: bad
+    color: '#c32aff'
+    label: 'minimap2 chimera'
+    goodblockcount: False
+    singlerecovery: False
+    simplelabel: 'chimera'
+  minimap2_duplicated_non_chimeric:
+    class: bad
+    color: '#d9c1db'
+    label: 'duplicated'
+    goodblockcount: False
+    singlerecovery: False
+    simplelabel: 'none'
+  minimap2_duplicated_chimeric:
+    minimap2_chimeric:
+    class: bad
+    color: '#E4A1CA'
+    label: 'duplicated and chimeric'
+    goodblockcount: False
+    singlerecovery: False
+    simplelabel: 'none'
   unmapped_contigs:
     class: bad
     color: '#B84303'
     label: 'hallucinated'
+    goodblockcount: False
+    singlerecovery: False
+    simplelabel: 'hallucinated'
   multi_mapped_contigs_multi_og:
     class: bad
     color: '#F00F18'
     label: 'chimera'
+    goodblockcount: False
+    singlerecovery: False
+    simplelabel: 'chimera'
   single_mapped_contigs:
     class: bad
     color: '#FECB47'
     label: 'incomplete'
+    goodblockcount: False
+    singlerecovery: False
+    simplelabel: 'incomplete'
   length_filtered_contigs:
     class: bad
     color: '#FEEAA2'
     label: 'length filtered'
+    goodblockcount: False
+    singlerecovery: False
+    simplelabel: 'length_filtered'
+
+# oprtion: legend position count from zero
+simplelabels:
+  chimera:
+    class: bad
+    color: '#F00F18'
+    label: 'chimera'
+    legend_position: 6
+  incomplete:
+    class: bad
+    color: '#FECB47'
+    label: 'incomplete'
+    legend_position: 4
+  hallucinated:
+    class: bad
+    color: '#B84303'
+    label: 'hallucinated'
+    legend_position: 5
+  length_filtered:
+    class: bad
+    color: '#FEEAA2'
+    label: 'length filtered'
+    legend_position: 3
+  recovered:
+    class: good
+    color: 'darkgreen'
+    label: 'recovered'
+    legend_position: 0
+  orthologous_recovered:
+    class: good
+    color: 'lightgreen'
+    label: 'orthologous recovered'
+    legend_position: 1
+  missed:
+    class: neutral
+    color: '#dddddd'
+    label: 'missed blocks'
+    legend_position: 2
 
 # rename ugly technical names with pretty tool / environment labels
 labels:
@@ -61,3 +174,14 @@ labels:
     freshwater: 'freshwater'
     diseased_gut: 'diseased gut'
 
+read_length: 126
+
+environment_for_legend_display: "healthy_gut"
+
+de_image:
+  gene_assembler_shortening: 
+    healthy_gut: rnaSPAdes
+    freshwater: Trinity
+    seawater: Trinity
+  orthogroup_assembler_shortening:
+    healhty_gut: rnaSPAdes

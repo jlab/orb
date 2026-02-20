@@ -261,7 +261,7 @@ def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
 
         order = list(reversed(
             pd.pivot_table(data=confusion.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum").sort_values(
-                by=       ['True Positive', 'False Positive', 'False Negative'],
+                by=['True Positive', 'False Positive', 'False Negative'],
                 ascending=[False,           True,             True]).index))
         confusion.loc[confusion.loc[environment, order, :].index, 'rank'] = [
             rank
@@ -403,8 +403,6 @@ def getdata_DEorthogroups_mod(fp_orb_basedir: str, settings, verbose=True):
         "deseq2_og_DE_TP": True
     }
 
-
-
     # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
 
@@ -520,7 +518,6 @@ def getdata_block_recovery(fp_orb_basedir:str, fp_marbel_basedir:str, sequence_f
             blocks_assembler['category'] = blocks_assembler['is_recovered'].map({True: "recovered", False: "missed"})
             blocks_assembler["assembler"] = settings['labels']['assemblers'].get(assembler, assembler)
             all_block_assignments = pd.concat([all_block_assignments, blocks_assembler], ignore_index=True)
-        
 
         recovered_blocks[environment] = all_block_assignments
 
@@ -574,8 +571,3 @@ def filter_for_assembler_with_ns(fp_orb_basedir:str, settings, verbose=True):
         contigs[environment] = n_run_data
 
     return contigs
-
-
-def getsimple_recovery(fp_orb_basedir, settings, verbose):
-    data_recovery = getdata_recovery(fp_orb_basedir, settings)
-    
