@@ -3,7 +3,7 @@ process CALCULATEREFERENCEINFO {
     label "process_medium"
     //conda "${moduleDir}/environment.yml"
     //TODO: create a custom container with pandas and jq
-    container "quay.io/biocontainers/pandas:2.2.1"
+    container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
     tuple val(meta), path(ref_fasta)
@@ -25,7 +25,6 @@ process CALCULATEREFERENCEINFO {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    pip install biopython==1.83
     calculate_reference_info.py  ${blocks_df} ${chim_blocks_df} ${ref_fasta} ${prefix}
 
     cat <<-END_VERSIONS > versions.yml

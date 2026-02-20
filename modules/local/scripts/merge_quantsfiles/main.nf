@@ -1,9 +1,10 @@
 process MERGEQUANTSFFILES {
     tag "$meta.id"
     label "process_low"
+ //   cache false
 
     //conda "${moduleDir}/environment.yml"
-    container "quay.io/biocontainers/pandas:2.2.1"
+    container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
     tuple val(meta), path(quant_files)

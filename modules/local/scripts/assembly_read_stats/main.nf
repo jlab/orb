@@ -3,7 +3,7 @@ process ASSEMBLYREADSTATS {
     label "process_low"
 
     //conda "${moduleDir}/environment.yml"
-    container "quay.io/biocontainers/pandas:2.2.1"
+    container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
     tuple val(meta), path(mapping)

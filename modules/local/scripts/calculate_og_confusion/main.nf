@@ -1,10 +1,10 @@
-process CALCULATECALOURCONFUSION {
+process CALCULATEOGCONFUSION {
     tag "$meta.id"
     label "process_medium"
     container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
-    tuple val(meta), path(dge_ass), path(mapping)
+    tuple val(meta), path(dge_ass)
     tuple val(meta2), path(dge_ref)
 
     output:
@@ -18,6 +18,6 @@ process CALCULATECALOURCONFUSION {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    calculate_calour_confusion.py ${dge_ass} ${mapping} ${dge_ref} ${prefix}
+    calculate_og_confusion.py ${dge_ass} ${dge_ref} ${prefix} ${args}
     """
 }

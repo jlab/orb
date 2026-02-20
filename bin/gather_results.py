@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import pandas as pd
 import sys
 import re
@@ -5,7 +7,7 @@ from Bio import SeqIO
 import os
 
 all_contigs_ids = sys.argv[1]
-mapped_ids = sys.argv[2]
+minimap2_categories = sys.argv[2]
 chimeric_mapped_ids = sys.argv[3]
 length_filtered_ids = sys.argv[4]
 assembler_mapping = sys.argv[5]
@@ -18,7 +20,7 @@ all_contigs_ids = pd.read_csv(all_contigs_ids, header=None).iloc[:, 0]
 len_all_contigs_ids = len(all_contigs_ids)
 
 try:
-    mapped_ids = pd.read_csv(mapped_ids, header=None).iloc[:, 0]
+    mapped_ids = pd.read_csv(minimap2_categories, sep="\t", index_col=0)["contig"]
 except pd.errors.EmptyDataError:
     mapped_ids = pd.Series([])
 try:

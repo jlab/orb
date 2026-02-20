@@ -3,7 +3,7 @@ process STACKDATAFRAMES {
     label "process_low"
 
     //conda "${moduleDir}/environment.yml"
-    container "quay.io/biocontainers/pandas:2.2.1"
+    container "quay.io/tensulin/orb_toolchain:1.0"
     //container "ubuntu:plucky-20241111"
     //TODO: change container?   container='ubuntu:24.10'
 

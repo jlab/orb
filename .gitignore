@@ -19,3 +19,11 @@ bin/*pdf
 
 graph.html
 nf-*.tsv
+
+configs/
+plotting/*.ipynb
+plotting/*.csv*
+plotting/data_cache
+plotting/envs/
+plotting/envs_newtest/
+plotting/archive

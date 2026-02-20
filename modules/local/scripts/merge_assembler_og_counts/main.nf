@@ -1,14 +1,15 @@
-process CATEGORIZECONTIGS {
+process MERGE_ASSEMBLER_OG_COUNTS {
     tag "$meta.id"
     label "process_medium"
     //conda "${moduleDir}/environment.yml"
+    //TODO: create a custom container with pandas and jq
     container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
-    tuple val(meta), path(contig_ids), path(length_filtered_contig_ids), path(minimap2_categories), path(mapped_chim_scores), path(assembler_mapping), path(gene_summary), path(contigs_fasta)
+    tuple val(meta), path(counts), path(assembler_mapping), path(gene_summary)
 
     output:
-    tuple val(meta), path("${prefix}_contigs_categorised.tsv")           , emit: contig_categorisation
+    tuple val(meta), path("${prefix}_merged_orthogroups.tsv")              , emit: merged_assembler_orthogroups
     path  "versions.yml"                                                   , emit: versions
 
 
@@ -20,8 +21,7 @@ process CATEGORIZECONTIGS {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    categorize_contigs.py ${contig_ids} ${minimap2_categories} ${mapped_chim_scores} ${length_filtered_contig_ids} \\
-                                                ${assembler_mapping} ${gene_summary} ${prefix}
+    merge_assembler_og_counts.py ${counts} ${assembler_mapping} ${gene_summary} ${prefix}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

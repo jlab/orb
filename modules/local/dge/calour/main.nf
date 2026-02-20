@@ -22,7 +22,7 @@ process CALOUR {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    python3 -c "import calour; print(f'Calour: \"{calour.__version__}\"')" > versions.yml
+    /usr/bin/python3 -c "import calour; print(f'Calour: \"{calour.__version__}\"')" > versions.yml
     calour_calculation.py ${count_matrix} ${min_abundance} ${prefix} ${args}
     """
 }

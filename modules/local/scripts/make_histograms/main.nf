@@ -3,7 +3,7 @@ process MAKEHISTOGRAMS {
     label "process_low"
 
     //conda "${moduleDir}/environment.yml"
-    container "quay.io/biocontainers/pandas:2.2.1"
+    container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
     tuple val(meta), path(dfs)
@@ -21,7 +21,6 @@ process MAKEHISTOGRAMS {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    pip install matplotlib
     make_histogramms.py ${prefix} ${dfs}
 
     cat <<-END_VERSIONS > versions.yml

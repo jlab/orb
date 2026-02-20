@@ -17,18 +17,56 @@
 
 Recommended usage:
 
-* Create an *in silico* dataset using [Marbel](https://anaconda.org/bioconda/marbel)
-* Assemble the datasets with a tool to benchmark
+* Create *in silico* datasets using [Marbel](https://anaconda.org/bioconda/marbel), name the output dirs: NAME_microbiome
+* Assemble the datasets
 * Run the pipeline
 
-Fill the required parameters per run and adjust the example config files in `example/dataset.config` and `example/resources.config`
+Fill the required parameters per run and adjust the example config files in `example/tool.config`, `example/dataset.config` and `example/resources.config`.
+
+For each dataset create a dataset.config with the data set name. For outdir parameter chose the same parent dir, if you want to visualise the datasets together, e.g., PATH/group/dataset1, PATH/group/dataset2. 
+
+Run each dataset with:
 
 ```bash
 nextflow run . \
-   -profile podman \
+   -profile apptainer \
    -c example/dataset.config \
-   -c example/resources.config
+   -c example/resources.config \
+   -c example/tool.config
 ```
+
+Afterwards there is multiple methods which can visualise the runs. A script which creates all orb files is provided: 
+`plotting/plot_orb_figures.py
+
+For the dependencies you can use:
+
+```
+conda env create -f plotting/orb_plots.yaml
+
+conda activate orb_plots
+```
+
+The script can be startet with:
+
+python plotting/plot_orb_figures.py <fp_orb_basedir> <fp_marbel_basedir> <marbel_sequence_file> <settings> <file_ending_svg_or_png> <outdir_name> <caviar_log_files>
+
+`fp_orb_basedir`: Path of the results for orb.
+
+`fp_marbel_basedir`: Path to the *in silico* datasets. Datasets folders require _microbiome suffix.
+
+`marbel_sequence_file`: Path to the bio index file of the [Marbel repository](https://github.com/jlab/marbel): `src/marbel/data/deduplicated_pangenome_EDGAR_Microbiome_JLAB2.fas.bgz.bio_index`
+
+`settings`: Style yaml, for example style settings please see plotting/style.yaml
+
+`file_ending_svg_or_png`: file ending, supported: svg or png
+
+`outdir_name`: name of the directory where the plots should be saved
+
+`caviar_log_files`: directory of the log files, if assembled with [Caviar](https://github.com/jlab/caviar), can be left blank with: ""
+
+This script will take some time for the first run. If you recreate environments, remove cache folder: data_cache.
+
+Individual plots may also be imported in a notebook from plot_include_orb and be created there.
 
 ## Credits
 

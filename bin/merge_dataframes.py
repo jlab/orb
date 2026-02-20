@@ -12,9 +12,9 @@ def merge_dfs(df_files):
             first = False
         else:
             df = pd.read_csv(df_file, sep="\t", index_col=0)
-            dfs = pd.merge(dfs, df, left_index=True, right_index=True)
+            dfs = pd.merge(dfs, df, left_index=True, right_index=True, how="outer")
+    dfs = dfs.fillna(0)
     dfs.to_csv(sys.stdout, sep="\t", index=True)
-
 
 len_args = len(sys.argv)
 df_files = sys.argv[1:len_args]
