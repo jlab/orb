@@ -18,7 +18,7 @@ from skbio.stats.distance import DistanceMatrix
 from statannotations.Annotator import Annotator
 
 
-def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True, detail_view=False):
+def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True, detail_view=False, report_percent=True):
     """Plots contig recovery.
     
     Parameters
@@ -34,6 +34,10 @@ def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True, det
         Maximal number of panels in a row.
     verbose : boolean
         Report progress on sys.stderr
+    report_percent : boolean
+        If true, legend items also mention the fraction of contigs classified as
+        such across all environments / all assemblers. This gives a feeling for
+        importance of a class.
 
     Returns
     -------
@@ -107,6 +111,26 @@ def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True, det
                     sorted_handels.append(handles[labels.index(label)])
                 handles = sorted_handels
                 labels = sorted_labels
+
+            if report_percent:
+                # print percent of contigs in each class in legend
+                # compute ratio classes across all environments and assembler (except missed blocks)
+                denominators_noneutral = data_recovery[[c['label']
+                    for _, c in settings['contig_classes'].items()
+                    if c['class'] != 'neutral'
+                    if c['label'] in data_recovery.columns]].sum()
+                percent = (denominators_noneutral / denominators_noneutral.sum())
+                # compute ratio of missed blocks: neutral / (good + neutral) blocks
+                denominators_rhs = data_recovery[[c['label']
+                    for _, c in settings['contig_classes'].items()
+                    if c['class'] != 'bad'
+                    if c['label'] in data_recovery.columns]].sum()
+                percent = pd.concat([percent, (denominators_rhs[[c['label']
+                    for _, c in settings['contig_classes'].items()
+                    if c['class'] == 'neutral']] / denominators_rhs.sum())]).apply(lambda x: '%.2f%%' % (x * 100))
+                # updates legend labels
+                labels = ['%s (%s)' % (l, percent.loc[l]) if l in percent.index else l for l in labels]
+
             ax_good.legend(handles, labels, ncol=8, bbox_to_anchor=(-0.1, -0.20))
         else:
             ax_good.legend().remove()
