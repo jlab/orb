@@ -12,13 +12,13 @@ contig_classes:
     goodblockcount: True 
     singlerecovery: True
     simplelabel: 'recovered'
-  chimeric_mapped_contigs:
+  overlap_block:
     class: good
     color: 'green'
     label: 'overlapping annotation'
     goodblockcount: True
     singlerecovery: False
-    simplelabel: 'recovered'
+    simplelabel: 'overlap_block'
   multi_mapped_contigs_single_og:
     class: good
     color: 'lightgreen'
@@ -118,22 +118,22 @@ simplelabels:
     class: bad
     color: '#F00F18'
     label: 'chimera'
-    legend_position: 6
+    legend_position: 7
   incomplete:
     class: bad
     color: '#FECB47'
     label: 'incomplete'
-    legend_position: 4
+    legend_position: 5
   hallucinated:
     class: bad
     color: '#B84303'
     label: 'hallucinated'
-    legend_position: 5
+    legend_position: 6
   length_filtered:
     class: bad
     color: '#FEEAA2'
     label: 'length filtered'
-    legend_position: 3
+    legend_position: 4
   recovered:
     class: good
     color: 'darkgreen'
@@ -143,12 +143,17 @@ simplelabels:
     class: good
     color: 'lightgreen'
     label: 'orthologous recovered'
+    legend_position: 2
+  overlap_block:
+    class: good
+    color: 'green'
+    label: 'overlapping annotation'
     legend_position: 1
   missed:
     class: neutral
     color: '#dddddd'
     label: 'missed blocks'
-    legend_position: 2
+    legend_position: 3
 
 # rename ugly technical names with pretty tool / environment labels
 labels:
@@ -184,4 +189,4 @@ de_image:
     freshwater: Trinity
     seawater: Trinity
   orthogroup_assembler_shortening:
-    healhty_gut: rnaSPAdes
+    healthy_gut: rnaSPAdes

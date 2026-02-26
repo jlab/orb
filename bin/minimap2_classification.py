@@ -76,10 +76,11 @@ def count_ns_in_contigs(contigs_path):
 
 
 minimap_path = sys.argv[1]
-contig_path = sys.argv[2]
-gene_summary_path = sys.argv[3]
-seed = int(sys.argv[4])
-prefix = sys.argv[5]
+minimap_overlap_path = sys.argv[2]
+contig_path = sys.argv[3]
+gene_summary_path = sys.argv[4]
+seed = int(sys.argv[5])
+prefix = sys.argv[6]
 
 mapping_col_names = [
     "contig",  # Query sequence name
@@ -99,7 +100,11 @@ mapping_col_names = [
 json_cols = ["contig", "block_id"]
 
 minimap_mapping = pd.read_csv(
-        minimap_path, sep="\t", header=None, names=mapping_col_names, dtype={'contig': str}
+    minimap_path, sep="\t", header=None, names=mapping_col_names, dtype={'contig': str}
+)
+
+minimap_overlap_df = pd.read_csv(
+    minimap_overlap_path, sep="\t", dtype={'contig': str}
 )
 
 gene_summary = pd.read_csv(gene_summary_path)
@@ -119,6 +124,8 @@ minimap_mapping = minimap_mapping[
     (minimap_mapping["covered_reference"] <= 1.05) &
     (minimap_mapping["covered_reference"] >= 0.95)
 ]
+
+minimap_mapping = minimap_mapping[~minimap_mapping["contig"].isin(minimap_overlap_df["contig"])]
 
 minimap_mapping = minimap_mapping.reset_index(drop=True)
 
@@ -263,6 +270,8 @@ minimap_mapping.to_csv("debug.tsv", sep="\t")
 minimap_mapping.dropna(
     subset=["category"], inplace=True
 )
+
+minimap_mapping = pd.concat([minimap_mapping, minimap_overlap_df], ignore_index=True)
 
 # calculate how many Ns are in the assigned contigs
 contigs_n_df = pd.merge(

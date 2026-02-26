@@ -5,7 +5,7 @@ process MINIMAP2CLASSIFICATION {
     container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
-    tuple val(meta), path(mapping), path(contigs), path(gene_summary)
+    tuple val(meta), path(mapping), path(overlap_selection), path(contigs), path(gene_summary)
 
     output:
     tuple val(meta), path("${prefix}_recovered.json")   , emit: map
@@ -23,7 +23,7 @@ process MINIMAP2CLASSIFICATION {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    minimap2_classification.py ${mapping} ${contigs} ${gene_summary} ${args} ${prefix} 
+    minimap2_classification.py ${mapping} ${overlap_selection} ${contigs} ${gene_summary} ${args} ${prefix} 
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

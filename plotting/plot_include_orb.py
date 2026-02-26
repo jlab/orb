@@ -131,7 +131,7 @@ def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True, det
                 # updates legend labels
                 labels = ['%s (%s)' % (l, percent.loc[l]) if l in percent.index else l for l in labels]
 
-            ax_good.legend(handles, labels, ncol=8, bbox_to_anchor=(-0.1, -0.20))
+            ax_good.legend(handles, labels, ncol=8, bbox_to_anchor=(0.9, -0.20)) #-0.1
         else:
             ax_good.legend().remove()
         ax_bad.legend().remove()
@@ -329,7 +329,6 @@ def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, num_columns:int
             shortening_dict = settings["de_image"]["orthogroup_assembler_shortening"]
         else:
             shortening_dict = settings["de_image"]["gene_assembler_shortening"]
-
         for ex_env, ex_ass in shortening_dict.items():
             if environment == ex_env:
                 pdata = DEfeatures.loc[environment, [ass for ass in DEfeatures.loc[environment, :].index.levels[0] if ass != ex_ass], :]

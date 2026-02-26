@@ -8,12 +8,11 @@ import os
 
 all_contigs_ids = sys.argv[1]
 minimap2_categories = sys.argv[2]
-chimeric_mapped_ids = sys.argv[3]
-length_filtered_ids = sys.argv[4]
-assembler_mapping = sys.argv[5]
-gene_summary = sys.argv[6]
-contig_fasta = sys.argv[7]
-prefix = sys.argv[8]
+length_filtered_ids = sys.argv[3]
+assembler_mapping = sys.argv[4]
+gene_summary = sys.argv[5]
+contig_fasta = sys.argv[6]
+prefix = sys.argv[7]
 
 
 all_contigs_ids = pd.read_csv(all_contigs_ids, header=None).iloc[:, 0]
@@ -24,10 +23,6 @@ try:
 except pd.errors.EmptyDataError:
     mapped_ids = pd.Series([])
 try:
-    chimeric_mapped_ids = pd.read_csv(chimeric_mapped_ids, header=None).iloc[:, 0]
-except pd.errors.EmptyDataError:
-    chimeric_mapped_ids = pd.Series([])
-try:
     length_filtered_ids = pd.read_csv(length_filtered_ids, header=None).iloc[:, 0]
 except pd.errors.EmptyDataError:
     length_filtered_ids = pd.Series([])
@@ -35,18 +30,15 @@ except pd.errors.EmptyDataError:
 gene_summary = pd.read_csv(gene_summary, usecols=["gene_name", "orthogroup"]).set_index("gene_name")
 gene_og_dict = gene_summary.to_dict()["orthogroup"]
 
+# first gather results
+
+# add full index?
+
 # remove ids that are already mapped
-chimeric_mapped_ids = chimeric_mapped_ids[~chimeric_mapped_ids.isin(mapped_ids)]
-
-chimeric_mapped_ids_double_mapped = chimeric_mapped_ids[chimeric_mapped_ids.isin(mapped_ids)]
-
-if len(chimeric_mapped_ids_double_mapped) > 0:
-    print("Some contigs are double mapped, are removed from summary")
-    print(chimeric_mapped_ids_double_mapped)
 
 assembler_mapping = pd.read_csv(assembler_mapping, sep="\t", header=None)
 
-all_contigs_ids = all_contigs_ids[~all_contigs_ids.isin(pd.concat([mapped_ids, chimeric_mapped_ids, length_filtered_ids]))]
+all_contigs_ids = all_contigs_ids[~all_contigs_ids.isin(pd.concat([mapped_ids, length_filtered_ids]))]
 
 unmapped_contigs = all_contigs_ids[~all_contigs_ids.isin(assembler_mapping[0].unique())]
 
@@ -89,7 +81,7 @@ for record in SeqIO.parse(contig_fasta, "fasta"):
 
 
 result_dict = {"total_contigs": len_all_contigs_ids, "total_bases": sum(mapped_contig_lengths) + sum(unmpapped_contig_lengths_single) + sum(unmpapped_contig_lengths_multi),
-               "mapped_contigs": len(mapped_ids), "chimeric_mapped_contigs": len(chimeric_mapped_ids), "length_filtered_contigs": len(length_filtered_ids),
+               "mapped_contigs": len(mapped_ids), "length_filtered_contigs": len(length_filtered_ids),
                "unmapped_contigs": len(unmapped_contigs), "multi_mapped_contigs": len(multi_mapped_contigs), "multi_mapped_contigs_single_og":
                single_og_contigs, "multi_mapped_contigs_multi_og": multi_og_contigs, "single_mapped_contigs": len(single_mapped_contigs),
                "mapped_contig_bases": sum(mapped_contig_lengths), "unmapped_contig_bases": sum(unmpapped_contig_lengths_single) + sum(unmpapped_contig_lengths_multi),}

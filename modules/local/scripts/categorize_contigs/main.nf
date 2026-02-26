@@ -5,11 +5,11 @@ process CATEGORIZECONTIGS {
     container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
-    tuple val(meta), path(contig_ids), path(length_filtered_contig_ids), path(minimap2_categories), path(mapped_chim_scores), path(assembler_mapping), path(gene_summary), path(contigs_fasta)
+    tuple val(meta), path(contig_ids), path(length_filtered_contig_ids), path(minimap2_categories), path(assembler_mapping), path(gene_summary), path(contigs_fasta)
 
     output:
     tuple val(meta), path("${prefix}_contigs_categorised.tsv")           , emit: contig_categorisation
-    path  "versions.yml"                                                   , emit: versions
+    path  "versions.yml"                                                 , emit: versions
 
 
     when:
@@ -20,8 +20,7 @@ process CATEGORIZECONTIGS {
     prefix = task.ext.prefix ?: "${meta.id}"
     
     """
-    categorize_contigs.py ${contig_ids} ${minimap2_categories} ${mapped_chim_scores} ${length_filtered_contig_ids} \\
-                                                ${assembler_mapping} ${gene_summary} ${prefix}
+    categorize_contigs.py ${contig_ids} ${minimap2_categories} ${length_filtered_contig_ids} ${assembler_mapping} ${gene_summary} ${prefix}
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

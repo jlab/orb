@@ -27,15 +27,13 @@ all_contig_ids_fl = sys.argv[1] # "/vol/jlab/tlin/no_backup/nextflow_workdir/00/
 
 minimap2_categories_fl = sys.argv[2] # "/vol/jlab/tlin/no_backup/nextflow_workdir/42/62113b3dfc94ec10187ea81edf48a0/rnaspades_values.txt"
 
-chimeric_mapped_ids_fl = sys.argv[3] # "/vol/jlab/tlin/no_backup/nextflow_workdir/b7/51144ac49d14bec67d7b2a21adbda3/rnaspades_chimeric_values.txt"
+length_filtered_ids_fl = sys.argv[3] # "/vol/jlab/tlin/no_backup/nextflow_workdir/00/40ed8ff06c8b8b7cc7997b34a4eb99/rnaspades_length_filtered_ids.txt"
 
-length_filtered_ids_fl = sys.argv[4] # "/vol/jlab/tlin/no_backup/nextflow_workdir/00/40ed8ff06c8b8b7cc7997b34a4eb99/rnaspades_length_filtered_ids.txt"
+assembler_mapping_fl = sys.argv[4] # "/vol/jlab/tlin/no_backup/nextflow_workdir/3c/f92325783c8fceb5ac01245489cc77/rnaspades_1000000.tsv"
 
-assembler_mapping_fl = sys.argv[5] # "/vol/jlab/tlin/no_backup/nextflow_workdir/3c/f92325783c8fceb5ac01245489cc77/rnaspades_1000000.tsv"
+gene_summary_path = sys.argv[5] # "/vol/jlab/tlin/marbel_benchmarking_integration/benchmarking_sets_all_sparse_fixed_libsize/moss_microbiome/summary/gene_summary.csv"
 
-gene_summary_path = sys.argv[6] # "/vol/jlab/tlin/marbel_benchmarking_integration/benchmarking_sets_all_sparse_fixed_libsize/moss_microbiome/summary/gene_summary.csv"
-
-prefix = sys.argv[7] # "rnaspades"
+prefix = sys.argv[6] # "rnaspades"
 
 all_contigs_ids = pl.read_csv(all_contig_ids_fl, has_header=False, new_columns=["contigs"])
 
@@ -44,11 +42,6 @@ try:
     mapped_ids = minimap2_categories["contig"].to_list()
 except (pl.exceptions.NoDataError, OSError):
     mapped_ids = []
-
-try:
-    chimeric_mapped_ids = pl.read_csv(chimeric_mapped_ids_fl, has_header=False, new_columns=["chimeric_mapped"])["chimeric_mapped"].to_list()
-except (pl.exceptions.NoDataError, OSError):
-    chimeric_mapped_ids = []
 
 try:
     length_filtered_ids = pl.read_csv(length_filtered_ids_fl, has_header=False, new_columns=["l_filtered"])["l_filtered"].to_list()
@@ -94,17 +87,18 @@ multi_mapped_contigs_single_og = multi_mapped.filter(
     pl.col("origin_orthogroup_nunique") == 1
 )["contigs"].to_list()
 
+unassigned_contigs = all_contigs_ids.filter(
+    ~pl.col("contigs").is_in(mapped_ids)
+)
+
 assembler_contigs = assembler_mapping["contigs"].to_list()
-unmapped_contigs = all_contigs_ids.filter(
+
+unmapped_contigs = unassigned_contigs.filter(
     ~pl.col("contigs").is_in(assembler_contigs)
 )["contigs"].to_list()
 
-contigs_with_cat = all_contigs_ids.with_columns([
-    pl.when(pl.col("contigs").is_in(mapped_ids))
-      .then(pl.lit("mapped_contigs"))
-      .when(pl.col("contigs").is_in(chimeric_mapped_ids))
-      .then(pl.lit("chimeric_mapped_contigs"))
-      .when(pl.col("contigs").is_in(length_filtered_ids))
+contigs_with_cat_no_mapped = unassigned_contigs.with_columns([
+    pl.when(pl.col("contigs").is_in(length_filtered_ids))
       .then(pl.lit("length_filtered_contigs"))
       .when(pl.col("contigs").is_in(unmapped_contigs))
       .then(pl.lit("unmapped_contigs"))
@@ -117,10 +111,6 @@ contigs_with_cat = all_contigs_ids.with_columns([
       .otherwise(pl.lit("no_category"))
       .alias("category")
 ])
-
-contigs_with_cat_no_mapped = contigs_with_cat.filter(
-    pl.col("category") != "mapped_contigs"
-)  
 
 print("before concat")
 

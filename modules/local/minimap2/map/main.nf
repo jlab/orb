@@ -14,16 +14,16 @@ process MINIMAP2_MAP {
 
 
     output:
-    tuple val(meta), path("${meta.id}_mapping.tsv")      , emit: mapping
-    path "versions.yml"                                  , emit: versions
+    tuple val(meta), path("${prefix}_mapping${suffix}.tsv")    , emit: mapping
+    path "versions.yml"                                        , emit: versions
 
     when:
     task.ext.when == null || task.ext.when
 
     script:
     def args  = task.ext.args ?: ''
-    def prefix = task.ext.prefix ?: "${meta.id}"
-
+    prefix = task.ext.prefix ?: "${meta.id}"
+    suffix  = task.ext.suffix ?: ''
 
     """
     
@@ -31,7 +31,7 @@ process MINIMAP2_MAP {
         $args \\
         -t $task.cpus \\
         ${reference} \\
-        ${reads} > ${prefix}_mapping.tsv
+        ${reads} > ${prefix}_mapping${suffix}.tsv
 
 
     cat <<-END_VERSIONS > versions.yml
