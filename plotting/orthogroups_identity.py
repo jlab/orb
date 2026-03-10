@@ -5,6 +5,7 @@ from Bio import SeqIO
 import json
 import os
 import pandas as pd
+from tqdm import tqdm
 
 
 def edlib_identity(seq1, seq2):
@@ -45,7 +46,7 @@ def calculate_og_seq_ident(summary_df, sequences_file, env_name, clear_cache=Fal
     if os.path.exists(f"data_cache/{og_identity_file}"):
         return pd.read_csv(f"data_cache/{og_identity_file}")
 
-    for og, genes in summary.groupby("orthogroup")["gene_name"]:
+    for og, genes in tqdm(summary.groupby("orthogroup")["gene_name"]):
         mean_id = compute_edlib_pairwise_identities(genes, sequence_db)
         og_names.append(og)
         mean_ids.append(mean_id)
