@@ -172,12 +172,16 @@ labels:
     trinity: 'Trinity'
 
   environments:
-    oak: 'oak' 
-    seawater: 'seawater' 
-    healthy_gut: 'healthy gut' 
+    oak: 'oak'
     moss: 'moss'
+    seawater: 'seawater'
     freshwater: 'freshwater'
+    healthy_gut: 'healthy gut'
     diseased_gut: 'diseased gut'
+
+  recovery_plot:
+    bad: 'artifacts'
+    good: 'reasonably good recovered'
 
 read_length: 126
 
