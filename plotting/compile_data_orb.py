@@ -1,3 +1,4 @@
+import sys
 from glob import glob
 from os.path import join, basename, relpath, sep
 import yaml
@@ -486,6 +487,26 @@ def getdata_rnaquast(fp_orb_basedir:str, fp_quast_basedir:str, settings, verbose
     return pd.concat(data).set_index(['environment', 'assembler', 'metric'])
 
 
+def getdata_detonate(fp_orb_basedir, fp_detonate_basedir:str, settings, verbose=True) -> pd.DataFrame:
+    # which environments to plot and in which order
+    environments = get_environments(fp_orb_basedir, settings)
+
+    data = []
+    for environment in tqdm(environments, disable=not verbose, desc='Compile Detonate data'):
+        detonate = pd.read_csv(join(fp_detonate_basedir, '%s_detonate_scores_merged.tsv' % environment), sep="\t", index_col=0)
+        detonate.index.name = 'metric'
+        detonate.columns = list(map(lambda x: settings['labels']['assemblers'].get(x, x), detonate.columns))
+        detonate = detonate.stack().reset_index().rename(columns={'level_1': 'assembler', 0: 'score'})
+        detonate['environment'] = environment
+        data.append(detonate)
+
+    data = pd.concat(data).set_index(['environment', 'assembler', 'metric'])
+    # compute score_KC
+    data = (data.loc[:, :, 'weighted_kmer_recall'] - data.loc[:, :, 'inverse_compression_rate']).rename(columns={'score': 'score_{KC}'})
+
+    return data
+
+
 def getdata_block_recovery(fp_orb_basedir:str, fp_marbel_basedir:str, sequence_file:str, settings, verbose=True):
 
     # which environments to plot and in which order
@@ -494,15 +515,31 @@ def getdata_block_recovery(fp_orb_basedir:str, fp_marbel_basedir:str, sequence_f
     recovered_blocks = dict()
     #fix_ass_labels(ax, dimension='Y')
 
-    for environment in tqdm(environments, disable=not verbose, desc='Compiling data for DE orthogroup plot'):
+    if verbose:
+        print("Compiling data for DE orthogroup plot:", file=sys.stderr)
+    for i, environment in enumerate(environments): #, disable=not verbose, desc=''):
+        if verbose:
+            print("  %i/%i: %s" % (i+1, len(environments), environment), file=sys.stderr)
         # obtain orthogroup information about genes
+        if verbose:
+            print("    a) read blocks.bed as pandas.DataFrame ...", end="", file=sys.stderr)
         blocks = pd.read_csv(join(fp_marbel_basedir, '%s_microbiome' % environment, "summary", "blocks.bed"), sep="\t", header=None, names=["gene", "start", "end", "block_name", "read_count"])
+        if verbose:
+            print("done.", file=sys.stderr)
         blocks['block_length'] = blocks['end'] - blocks['start']
         blocks['Coverage'] = blocks['read_count'] * settings["read_length"] / blocks['block_length']
+        if verbose:
+            print("    b) read gene_summary.csv as pandas.DataFrame ...", end="", file=sys.stderr)
         genes_to_og = pd.read_csv(join(fp_marbel_basedir, '%s_microbiome' % environment, "summary", "gene_summary.csv"), sep=",").set_index('gene_name')["orthogroup"].to_dict()
+        if verbose:
+            print("done.", file=sys.stderr)
         blocks["orthogroup"] = blocks['gene'].map(genes_to_og)
         all_block_assignments = pd.DataFrame()
+        if verbose:
+            print("    c) calculating OG sequence identity:", file=sys.stderr)
         og_means = calculate_og_seq_ident(join(fp_marbel_basedir, '%s_microbiome' % environment, "summary", "gene_summary.csv"), sequence_file, environment)
+        if verbose:
+            print("       done.", file=sys.stderr)
         og_means.set_index("og_name", inplace=True)
         og_means_dict = og_means["mean_identity"].to_dict()
         blocks["mean_identity"] = blocks["orthogroup"].map(og_means_dict)
@@ -520,6 +557,9 @@ def getdata_block_recovery(fp_orb_basedir:str, fp_marbel_basedir:str, sequence_f
             all_block_assignments = pd.concat([all_block_assignments, blocks_assembler], ignore_index=True)
 
         recovered_blocks[environment] = all_block_assignments
+
+    if verbose:
+        print("data compilation completed.", file=sys.stderr)
 
     return recovered_blocks
 

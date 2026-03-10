@@ -32,28 +32,28 @@ contig_classes:
     label: 'minimap2 merged recovered'
     goodblockcount: False
     singlerecovery: True
-    simplelabel: 'none'
+    simplelabel: 'recovered'
   minimap2_merged_recovered_blocks:
     class: good_block
     color: 'aquamarine'
     label: 'minimap2 merged recovered blocks'
     goodblockcount: True
     singlerecovery: False
-    simplelabel: 'recovered'
+    simplelabel: 'none'
   minimap2_orthologous_recovered:
     class: good
     color: 'lime'
     label: 'minimap2 orthologous recovered'
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'none'
+    simplelabel: 'orthologous_recovered'
   minimap2_orthologous_recovered_blocks:
     class: good_block
     color: 'lime'
     label: 'minimap2 orthologous recovered blocks'
     goodblockcount: True
     singlerecovery: False
-    simplelabel: 'orthologous_recovered'
+    simplelabel: 'none'
   missed:
     class: neutral
     color: '#dddddd'
@@ -172,12 +172,16 @@ labels:
     trinity: 'Trinity'
 
   environments:
-    oak: 'oak' 
-    seawater: 'seawater' 
-    healthy_gut: 'healthy gut' 
+    oak: 'oak'
     moss: 'moss'
+    seawater: 'seawater'
     freshwater: 'freshwater'
+    healthy_gut: 'healthy gut'
     diseased_gut: 'diseased gut'
+
+  recovery_plot:
+    bad: 'artifacts'
+    good: 'reasonably good recovered'
 
 read_length: 126
 

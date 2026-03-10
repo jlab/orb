@@ -27,3 +27,4 @@ plotting/data_cache
 plotting/envs/
 plotting/envs_newtest/
 plotting/archive
+plotting/outdir/
