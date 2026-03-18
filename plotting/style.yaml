@@ -64,10 +64,10 @@ contig_classes:
   minimap2_chimeric:
     class: bad
     color: '#c32aff'
-    label: 'minimap2 chimera'
+    label: 'mosaic chimera'
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'chimera'
+    simplelabel: 'minimap2_chimeric'
   minimap2_duplicated_non_chimeric:
     class: bad
     color: '#d9c1db'
@@ -93,10 +93,10 @@ contig_classes:
   multi_mapped_contigs_multi_og:
     class: bad
     color: '#F00F18'
-    label: 'chimera'
+    label: 'diffuse chimera'
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'chimera'
+    simplelabel: 'multi_mapped_contigs_multi_og'
   single_mapped_contigs:
     class: bad
     color: '#FECB47'
@@ -114,21 +114,26 @@ contig_classes:
 
 # oprtion: legend position count from zero
 simplelabels:
-  chimera:
+  minimap2_chimeric:
     class: bad
-    color: '#F00F18'
-    label: 'chimera'
+    color: '#FECB47'
+    label: 'mosaic chimera'
+    legend_position: 8
+  multi_mapped_contigs_multi_og:
+    class: bad
+    color: '#c32aff'
+    label: 'diffuse chimera'
     legend_position: 7
   incomplete:
     class: bad
-    color: '#FECB47'
+    color: '#F00F18'
     label: 'incomplete'
-    legend_position: 5
+    legend_position: 6
   hallucinated:
     class: bad
     color: '#B84303'
     label: 'hallucinated'
-    legend_position: 6
+    legend_position: 5
   length_filtered:
     class: bad
     color: '#FEEAA2'
@@ -143,12 +148,12 @@ simplelabels:
     class: good
     color: 'lightgreen'
     label: 'orthologous recovered'
-    legend_position: 2
+    legend_position: 1
   overlap_block:
     class: good
     color: 'green'
     label: 'overlapping annotation'
-    legend_position: 1
+    legend_position: 2
   missed:
     class: neutral
     color: '#dddddd'
@@ -181,7 +186,7 @@ labels:
 
   recovery_plot:
     bad: 'artifacts'
-    good: 'reasonably good recovered'
+    good: 'reasonably well recovered'
 
 read_length: 126
 
