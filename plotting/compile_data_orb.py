@@ -272,7 +272,7 @@ def getdata_DEgenes(fp_orb_basedir:str, settings, verbose=True):
     return confusion, recovered_contigs
 
 
-def getdata_DEgenes_mod(fp_orb_basedir: str, settings, verbose=True):
+def getdata_DEgenes_mod(fp_orb_basedir: str, settings, verbose=True, sortF1=False):
     conversion_map = {
             "deseq2_DE_TN": "True Negative",
             "deseq2_DE_FP": "False Positive",
@@ -312,11 +312,16 @@ def getdata_DEgenes_mod(fp_orb_basedir: str, settings, verbose=True):
 
     # add rank information to return dataframe
     for environment in confusion.index.levels[0]:
-
-        order = list(reversed(
-            pd.pivot_table(data=confusion.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum").sort_values(
-                by=       ['True Positive', 'False Positive', 'False Negative'],
-                ascending=[False,           True,             True]).index))
+        cfg = pd.pivot_table(data=confusion.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum")
+        # compute F1 score: https://en.wikipedia.org/wiki/F-score#Definition
+        cfg['F1'] = 2*cfg['True Positive'] / (2*cfg['True Positive'] + cfg['False Positive'] + cfg['False Negative'])
+        if sortF1:
+            order = list(cfg.sort_values(by='F1', ascending=True).index)
+        else:
+            order = list(reversed(
+                cfg.sort_values(
+                    by=       ['True Positive', 'False Positive', 'False Negative'],
+                    ascending=[False,           True,             True]).index))
         confusion.loc[confusion.loc[environment, order, :].index, 'rank'] = [
             rank
             for rank in list(reversed(range(1, len(order) + 1)))
@@ -389,7 +394,7 @@ def getdata_DEorthogroups(fp_orb_basedir:str, fp_marbel_basedir:str, fp_ogtruth_
     return confusion, recovered_contigs
 
 
-def getdata_DEorthogroups_mod(fp_orb_basedir: str, settings, verbose=True):
+def getdata_DEorthogroups_mod(fp_orb_basedir: str, settings, verbose=True, sortF1=False):
     conversion_map = {
             "deseq2_og_DE_TN": "True Negative",
             "deseq2_og_DE_FP": "False Positive",
@@ -426,10 +431,16 @@ def getdata_DEorthogroups_mod(fp_orb_basedir: str, settings, verbose=True):
 
     # add rank information to return dataframe
     for environment in confusion.index.levels[0]:
-        order = list(reversed(
-            pd.pivot_table(data=confusion.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum").sort_values(
-                by=       ['True Positive', 'False Positive', 'False Negative'],
-                ascending=[False,           True,             True]).index))
+        cfg = pd.pivot_table(data=confusion.loc[environment, :], index='assembler', columns='class', values='num_genes', aggfunc="sum")
+        # compute F1 score: https://en.wikipedia.org/wiki/F-score#Definition
+        cfg['F1'] = 2*cfg['True Positive'] / (2*cfg['True Positive'] + cfg['False Positive'] + cfg['False Negative'])
+        if sortF1:
+            order = list(cfg.sort_values(by='F1', ascending=True).index)
+        else:
+            order = list(reversed(
+                cfg.sort_values(
+                    by=       ['True Positive', 'False Positive', 'False Negative'],
+                    ascending=[False,           True,             True]).index))
         confusion.loc[confusion.loc[environment, order, :].index, 'rank'] = [
             rank
             for rank in list(reversed(range(1, len(order) + 1)))
@@ -611,3 +622,80 @@ def filter_for_assembler_with_ns(fp_orb_basedir:str, settings, verbose=True):
         contigs[environment] = n_run_data
 
     return contigs
+
+
+def get_genome_accession_map(fp_genomes:str):
+    """As genome accessions and assembly accessions differ, we here obtain a 1to1 map."""
+    # get a mapping from refseqAccession to assemblyAccession
+    accessionmap = []
+    for fp_report in tqdm(sorted(glob(join(fp_genomes, '**/*.jsonl'))), 'get reference genome accessions'):
+        accessions = pd.read_json(fp_report, lines=True)
+        accessionmap.append(accessions)
+    accessionmap = pd.concat(accessionmap)
+    accessionmap['refseqacc_noversion'] = accessionmap['refseqAccession'].apply(lambda x: x.split('.')[0])
+    accessionmap = accessionmap.set_index('refseqacc_noversion').rename(columns={'refseqAccession': 'refseqAccession_versioned'})
+
+    return accessionmap
+
+
+def get_blockpos_ingenes(fp_genomes:str, fp_marbel_basedir:str, env:str, accessionmap):
+    """Get relative start / end positions for each block in its according gene."""
+    
+    # load marbel's gene summary
+    summary = pd.read_csv(join(fp_marbel_basedir, '%s_microbiome' % env, 'summary', 'gene_summary.csv'), sep=",")
+    # add refseqAccession
+    summary['anchor_refseqAccession'] = summary['origin_species'].apply(lambda x: '_'.join(x.split('_')[-2:]))
+    summary = summary.merge(accessionmap[['assemblyAccession', 'refseqAccession_versioned']], left_on='anchor_refseqAccession', right_index=True, how='left')
+    # obtain genomic positions of genes
+    annotations = []
+    for acc_assembly in tqdm(summary['assemblyAccession'].unique(), 'collect block-coordinates and species annotations for %s' % env):
+        annot = pd.read_csv(join(fp_genomes, '%s/genomic.gff' % acc_assembly), sep="\t", comment='#', header=None)
+        # subset to CDS
+        annot = annot[annot[2] == 'CDS']
+        # get locus tag name from attributes field
+        annot['locus_tag'] = annot[8].apply(lambda x: [entry.split('=')[-1] for entry in x.split(';') if entry.split('=')[0] == 'locus_tag'][0])
+        with open(join(fp_genomes, '%s/genomic.gbff' % acc_assembly), 'r') as f:
+            for line in f.readlines():
+                if line.startswith('  ORGANISM'):
+                    annot['organism'] = line.split('  ORGANISM  ')[-1].strip()
+                    break
+        annotations.append(annot)
+    annotations = pd.concat(annotations).set_index([0, 'locus_tag'])
+    
+    # add genomic positions for genes
+    summary = summary.merge(annotations[[3,4,6, 'organism']].reset_index(), left_on='gene_name', right_on='locus_tag', how='left').rename(columns={0: 'assembly_accession', 3: 'gene_genomic_start', 4: 'gene_genomic_stop', 6: 'strand'})
+    #summary['assembly_length'] = accessionmap.reset_index().set_index('refseqAccession_versioned').loc[summary['assembly_accession'].values, 'length'].values
+    _map = accessionmap.reset_index().set_index('refseqAccession_versioned')['length'].to_dict()
+    summary['assembly_length'] = summary['assembly_accession'].apply(lambda x: _map.get(x, np.nan))
+    
+    return summary
+
+
+def get_genomic_hit_positons(fp_orb_basedir:str, fp_marbel_basedir:str, env:str, assembler:str, summary):
+    mapping = pd.read_csv('%s/%s/minimap2/%s_mapping.tsv' % (fp_orb_basedir, env, assembler), sep="\t", header=None).rename(
+        columns={0: 'Query sequence name',
+                 1: "Query sequence length",
+                 2: "Query start coordinate",
+                 3: "Query end coordinate",
+                 5: 'Target sequence name',
+                 7: 'Target start coordinate on the original strand',
+                 8: 'Target end coordinate on the original strand'})
+    # obtain gene name from block name
+    mapping['gene_name'] = mapping['Target sequence name'].apply(lambda x: x.split('_block')[0])
+
+    # obtain relative positions of blocks regarding a gene
+    blocks = pd.read_csv(join(fp_marbel_basedir, '%s_microbiome' % env, 'summary', 'blocks.bed'), sep="\t", header=None, names=['gene_name', 'start', 'stop', 'block', 'unknown'])
+
+    # add relative positions of blocks within genes
+    mapping = mapping.merge(blocks.set_index('block')[['start', 'stop']].rename(columns={'start': 'rel_block_start', 'stop': 'rel_block_stop'}), left_on='Target sequence name', right_index=True, how='left')
+    # add genomic gene positions
+    mapping = mapping.merge(summary.set_index('gene_name')[['gene_genomic_start', 'gene_genomic_stop', 'strand', 'assembly_accession', 'assembly_length', 'assemblyAccession', 'organism']], left_on='gene_name', right_index=True, how='left')
+    # compute genomic block positions
+    mapping['block_genomic_start'] = mapping['gene_genomic_start'] + mapping['rel_block_start']
+    mapping['block_genomic_stop'] = mapping['block_genomic_start'] + (mapping['rel_block_stop'] - mapping['rel_block_start'] + 1)
+    
+    # compute genomic HIT positions
+    mapping['hit_start'] = mapping['block_genomic_start'] + mapping['Target start coordinate on the original strand']
+    mapping['hit_stop'] = mapping['block_genomic_start'] + mapping['Target end coordinate on the original strand']
+
+    return mapping
