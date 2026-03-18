@@ -8,6 +8,7 @@ import matplotlib.colors as mcolors
 from matplotlib import patches as mpatches
 from matplotlib.lines import Line2D
 from matplotlib_venn import venn2
+import matplotlib.ticker as ticker
 import colorsys
 import seaborn as sns
 from compile_data_orb import get_environments, getdata_DEgenes_mod, getdata_recovery, getdata_gene_recovery, getdata_runtime_memory, getdata_DEvennOrtho, getdata_DEorthogroups_mod, get_recovered_contigs, getdata_rnaquast, getdata_block_recovery, get_contigs, filter_for_assembler_with_ns, getdata_detonate
@@ -18,9 +19,11 @@ from skbio.stats.distance import DistanceMatrix
 from statannotations.Annotator import Annotator
 
 
-def legendentries_col2rowordering(handles, labels, num_rows):
+def legendentries_col2rowordering(handles, labels, num_rows, dummiesatpositions=[]):
     entries = list(zip(handles, labels))
     num_columns = int(np.ceil(len(entries) / num_rows))
+    for pos in dummiesatpositions:
+        entries.insert(pos, (Line2D([], [], linestyle="none"), ""))
     reordered_entries = []
     for i in range(num_columns):
         reordered_entries.extend(entries[i::num_columns])
@@ -150,10 +153,10 @@ def plot_recovery(fp_orb_basedir, settings, num_columns:int=3, verbose=True, det
             # reorder entries in legend
             xoffset = 0
             if detail_view is False:
-                handles, labels = legendentries_col2rowordering(handles, labels, 2)
+                handles, labels = legendentries_col2rowordering(handles, labels, 2, dummiesatpositions=[4])
             else:
-                xoffset = 0.5
-            ax_good.legend(handles, labels, ncol=4, bbox_to_anchor=(0.5 + xoffset, -0.3))
+                xoffset = 0.2
+            ax_good.legend(handles, labels, ncol=5, bbox_to_anchor=(1 + xoffset, -0.3))
         else:
             ax_good.legend().remove()
         ax_bad.legend().remove()
@@ -230,15 +233,20 @@ def plotTimeMemory(fp_caviar_basedir:str, settings, verbose=True):
         plotdata['unit'] = plotdata['value'] / factor
         plotdata = plotdata.sort_values(by='unit')
         sns.boxplot(data=plotdata, x='unit', y='assembler', orient='h', ax=ax, color='lightgray')
-        sns.stripplot(data=plotdata, x='unit', y='assembler', orient='h', ax=ax, hue='environment', hue_order=settings['labels']['environments'])
+        sns.stripplot(data=plotdata, x='unit', y='assembler', orient='h', ax=ax, hue='environment', hue_order=list(settings['labels']['environments'].values()))
         ax.set_xlabel(label)
         ax.set_ylabel("")
         ax.set_title(title)
         if ax != axes[-1]:
+            ax.axvline(x=4*24, linestyle=':', color='gray', zorder=-1, label="4 CPU days")
+            rt_handles, rt_labels = ax.get_legend_handles_labels()
             ax.legend().remove()
         else:
             ax.axvline(x=64, linestyle='-.', color='gray', zorder=-1, label="64 GB laptop")
-            ax.legend(bbox_to_anchor=(1.1, -0.25), ncols=7)
+            mem_handles, mem_labels = ax.get_legend_handles_labels()
+            mem_handles.insert(len(mem_handles)-1, rt_handles[-1])
+            mem_labels.insert(len(mem_labels)-1, rt_labels[-1])
+            ax.legend(mem_handles, mem_labels, bbox_to_anchor=(0.5, -0.25), ncols=4)
 
     # panel labels
     for i, ax in enumerate(axes):
@@ -301,17 +309,17 @@ def get_rank_shifts(ranksA: pd.Series, ranksB: pd.Series, mergeAssembler={'idba'
     return  cmp
 
 
-def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, num_columns:int=3, verbose=True):
+def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, num_columns:int=3, verbose=True, sortF1=False):
     # which environments to plot and in which order
     environments = get_environments(fp_orb_basedir, settings)
     
     # load data
-    DEfeatures = getdata_DEgenes_mod(fp_orb_basedir, settings, verbose)
+    DEfeatures = getdata_DEgenes_mod(fp_orb_basedir, settings, verbose, sortF1=sortF1)
     if forOrthogroups is False:
         rank_data = getdata_recovery(fp_orb_basedir, settings, verbose=verbose)
     else:
         rank_data = DEfeatures.loc[:, :, 'True Positive']['rank'].reset_index().rename(columns={'rank': 'recovery_rank'}).set_index('assembler').copy()
-        DEfeatures = getdata_DEorthogroups_mod(fp_orb_basedir, settings)
+        DEfeatures = getdata_DEorthogroups_mod(fp_orb_basedir, settings, sortF1=sortF1)
 
     fig, axes = plt.subplots(
         int(np.ceil(len(environments) / num_columns)), 
@@ -347,7 +355,10 @@ def plot_DEgenes(fp_orb_basedir, settings, forOrthogroups=False, num_columns:int
             tick_label.set_color(color)
                 
         ax.set_title(settings['labels']['environments'].get(environment, environment))
-        ax.set_xlabel('number genes')
+        if forOrthogroups:
+            ax.set_xlabel('number orthologous groups')
+        else:
+            ax.set_xlabel('number genes')
         
         num_positives = DEfeatures.loc[environment, :].reset_index().set_index('truth').loc[True].groupby('assembler')['num_genes'].sum().iloc[0]
         ax.axvline(x=num_positives, color=palette['True Positive'], label='Positive')
@@ -582,7 +593,7 @@ def plot_rnaquast(fp_orb_basedir:str, fp_quast_basedir:str, settings, num_column
          ax_good.legend(handles=[
             mpatches.Patch(color=settings['contig_classes']['multi_mapped_contigs_multi_og']['color'], label='Misassemblies'),
             mpatches.Patch(color=settings['contig_classes']['minimap2_single_recovered']['color'], label='95%-assembled isoforms')],
-            ncol=2, bbox_to_anchor=(-1.8, -0.20))
+            ncol=2, bbox_to_anchor=(-0.5, -0.30))
          
         ax_bad.text(0.06, 0.96, settings['labels']['environments'].get(environment, environment),
                     transform=ax_bad.transAxes,
@@ -642,7 +653,8 @@ def plot_detonate(fp_orb_basedir:str, fp_detonate_basedir:str, settings, num_col
 
     return fig
 
-def plot_block_correlation(fp_orb_basedir, fp_marbel_basedir, sequence_file, settings, field, verbose=True, test = 'Mann-Whitney-gt', data_block_recovery=None, num_columns:int=3):
+
+def plot_block_correlation(fp_orb_basedir, fp_marbel_basedir, sequence_file, settings, field, verbose=True, test = 'Mann-Whitney-gt', data_block_recovery=None, num_columns:int=3, logscale=False):
     # field: block_length, read_mean_count, mean_identity, Coverage
     environments = get_environments(fp_orb_basedir, settings)
 
@@ -658,13 +670,13 @@ def plot_block_correlation(fp_orb_basedir, fp_marbel_basedir, sequence_file, set
         data_block_recovery = getdata_block_recovery(fp_orb_basedir, fp_marbel_basedir, sequence_file, settings, verbose=verbose)
     assemblers = settings['labels']['assemblers']
     # 'Mann-Whitney', 't-test_ind', 'Wilcoxon'
-    logscale = False
+
     for i, environment in tqdm(enumerate(environments), disable=not verbose, desc=f'Drawing panels for {field} plot'):
         ax = axes[i]
         plotdata = data_block_recovery[environment]
 
         # assembler
-        ordered_assembler = sorted(list(plotdata["assembler"].unique()))
+        ordered_assembler = sorted(list(plotdata["assembler"].unique()), key=lambda x: x.lower())
         if field == 'block_length':
             plotdata = plotdata[plotdata[field] > settings["read_length"]]
 
@@ -742,14 +754,14 @@ def plot_nruns(fp_orb_basedir, settings, num_columns:int=3, verbose=True, contig
         ax_bad.xaxis.set_label_coords(1, -0.4)
         ax_top_bad = ax_bad.twiny()
         ax_top_bad.set_xticks([])
-        ax_top_bad.set_xlabel("weak recovery")
+        ax_top_bad.set_xlabel(settings['labels']['recovery_plot']['bad'])
         
         ax_good = axes[i*2+1]
         sns.barplot(data=plot_data[plot_data['class'] != 'missed'], y='assembler', x=0, hue='max_n_longer_read_length', ax=ax_good)
         ax_good.tick_params(left = False)
         ax_good.set_yticks([])
         ax_good.set_ylabel("")
-        ax_good.set_xlabel("robust recovery")
+        ax_good.set_xlabel(settings['labels']['recovery_plot']['good'])
         ax_good.xaxis.set_label_position('top')
         ax_good.set_xlim((0, plot_data[0].max()*1.1))
         
@@ -775,3 +787,79 @@ def plot_nruns(fp_orb_basedir, settings, num_columns:int=3, verbose=True, contig
             ax_good.legend().remove()
         ax_bad.legend().remove()
     return fig
+
+
+def plot_hit_genomes_mapping(mapping, ax=None):
+    assert mapping['Query sequence name'].unique().shape[0] == 1
+    CONTIG_GAP = 100000
+    hitYpos = -2
+
+    plotinfo = mapping.copy()
+
+    # one line per organism
+    for y, (taxon, g) in enumerate(plotinfo.groupby('assemblyAccession')):
+        plotinfo.loc[g.index, 'ypos'] = y
+        # one segment per genome assembly contig
+        x_pos = 0
+        for i, (contig, g2) in enumerate(g.sort_values(by='assembly_length').groupby('assembly_accession')):
+            for field in ['gene_genomic_start', 'gene_genomic_stop',
+                          'block_genomic_start', 'block_genomic_stop',
+                          'hit_start', 'hit_stop']:
+                plotinfo.loc[g2.index, 'xpos_%s' % field] = x_pos + plotinfo.loc[g2.index, field]
+            plotinfo.loc[g2.index, 'xpos_assembly_contig_start'] = x_pos
+            plotinfo.loc[g2.index, 'xpos_assembly_contig_stop'] = x_pos + g2['assembly_length'].iloc[0]
+            x_pos += g2['assembly_length'].iloc[0] + CONTIG_GAP
+
+    if ax is None:
+        fig, axes = plt.subplots(1, 1, figsize=(10, 3))
+        ax = axes
+    else:
+        fig = None
+
+    ylabels = []
+    total_width = plotinfo['xpos_assembly_contig_stop'].max()
+    colors = sns.color_palette(n_colors=mapping.shape[0])
+    color_index = 0
+    for y, (taxon, g) in enumerate(plotinfo.groupby('assemblyAccession')):
+        # plot horizontal lines for the contigs of the genome assembly
+        ylabels.append((y, g['organism'].iloc[0] + "\n" + taxon))
+        for _, asscontig in g.groupby('assembly_accession').head(1).iterrows():
+            ax.plot([asscontig['xpos_assembly_contig_start'], asscontig['xpos_assembly_contig_stop']],
+                    [asscontig['ypos'], asscontig['ypos']], color='black', linewidth=1, zorder=-1)
+        
+        # plot boxes (will be reduced to vertical lines in most cases) for genes in genomes
+        for gene, g_gene in g.sort_values(by='xpos_gene_genomic_start').groupby('gene_name').head(1).iterrows():
+            width = max(g_gene['xpos_gene_genomic_stop'] - g_gene['xpos_gene_genomic_start'] + 1, total_width / 500)
+            ax.add_patch(mpatches.Rectangle((g_gene['xpos_gene_genomic_start'], g_gene['ypos'] - 0.2), width, 0.2*2))
+
+        for _, hit in g.sort_values(by='Query start coordinate').iterrows():
+            hit_start, hit_stop = hit['Query start coordinate'], hit['Query end coordinate']
+            if True:
+                hit_start = hit_start / hit['Query sequence length'] * total_width
+                hit_stop = hit_stop / hit['Query sequence length'] * total_width
+            ax.add_patch(mpatches.Polygon([[hit_start, hitYpos], [hit_stop, hitYpos], 
+                                  [hit['xpos_hit_start'], hit['ypos']], [hit['xpos_hit_stop'], hit['ypos']]], 
+                                 closed=True, facecolor=colors[color_index], edgecolor='k', linewidth=2, alpha=0.6))
+            color_index += 1
+
+    # plot horizontal line for hit contig
+    ax.plot([0, total_width], [hitYpos, hitYpos], color='blue', linewidth=1, zorder=-1)
+    ylabels.append((hitYpos, plotinfo.iloc[0, :]['Query sequence name']))
+
+    ax.set_yticks([pos for pos, _ in ylabels], [label for _, label in ylabels])
+    ax_top = ax.twiny()
+    
+    # give reasonable xticks for hit (but in genomic coordinates)
+    hit_xticks = ticker.MaxNLocator(nbins=7).tick_values(0, plotinfo.iloc[0, :]['Query sequence length'])
+    ax.set_xticks([x / hit['Query sequence length'] * total_width for x in hit_xticks], list(map(int, hit_xticks)))
+    ax.set_xlabel('contig position (bp)')
+    
+    genome_xticks = ticker.MaxNLocator(nbins=7).tick_values(0, total_width)
+    ax_top.set_xlim(ax.get_xlim())
+    ax_top.set_xticks(genome_xticks, ['%.1f' % (x / 1000000) for x in genome_xticks])
+    ax_top.set_xlabel('genomic position (Mbp)')
+
+    if fig is None:
+        return ax
+    else:
+        return fig
