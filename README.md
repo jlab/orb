@@ -17,13 +17,13 @@
 
 Recommended usage:
 
-* Create *in silico* datasets using [Marbel](https://anaconda.org/bioconda/marbel), name the output dirs: NAME_microbiome
-* Assemble the datasets
-* Run the pipeline
+- Create _in silico_ datasets using [Marbel](https://anaconda.org/bioconda/marbel), name the output dirs: NAME_microbiome
+- Assemble the datasets
+- Run the pipeline
 
 Fill the required parameters per run and adjust the example config files in `example/tool.config`, `example/dataset.config` and `example/resources.config`.
 
-For each dataset create a dataset.config with the data set name. For outdir parameter chose the same parent dir, if you want to visualise the datasets together, e.g., PATH/group/dataset1, PATH/group/dataset2. 
+For each dataset create a dataset.config with the data set name. For outdir parameter chose the same parent dir, if you want to visualise the datasets together, e.g., PATH/group/dataset1, PATH/group/dataset2.
 
 Run each dataset with:
 
@@ -35,7 +35,7 @@ nextflow run . \
    -c example/tool.config
 ```
 
-Afterwards there is multiple methods which can visualise the runs. A script which creates all orb files is provided: 
+Afterwards there is multiple methods which can visualise the runs. A script which creates all orb files is provided:
 `plotting/plot_orb_figures.py
 
 For the dependencies you can use:
@@ -52,7 +52,7 @@ python plotting/plot_orb_figures.py <fp_orb_basedir> <fp_marbel_basedir> <marbel
 
 `fp_orb_basedir`: Path of the results for orb.
 
-`fp_marbel_basedir`: Path to the *in silico* datasets. Datasets folders require _microbiome suffix.
+`fp_marbel_basedir`: Path to the _in silico_ datasets. Datasets folders require \_microbiome suffix.
 
 `marbel_sequence_file`: Path to the bio index file of the [Marbel repository](https://github.com/jlab/marbel): `src/marbel/data/deduplicated_pangenome_EDGAR_Microbiome_JLAB2.fas.bgz.bio_index`
 

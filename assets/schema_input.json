@@ -18,7 +18,7 @@
                     "type": "string"
                 },
                 "errorMessage": "An array of assemblers for reads 1 must be provided"
-            },
+            }
         },
         "required": ["sample", "assemblers"]
     }
