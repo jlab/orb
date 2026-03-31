@@ -15,8 +15,8 @@ pval_name = sys.argv[5]
 log_name = sys.argv[6]
 row_prefix = sys.argv[7]
 
-gene_summary = pd.read_csv(gene_summary_file, sep='\t')
-assembler_dge = pd.read_csv(assembler_dge_file, sep='\t')
+gene_summary = pd.read_csv(gene_summary_file, sep="\t")
+assembler_dge = pd.read_csv(assembler_dge_file, sep="\t")
 
 
 with open(map_file, "r") as file:
@@ -36,7 +36,12 @@ for cds, group in assembler_dge[assembler_dge["gene_name"].duplicated(keep=False
     if sum(group["de"]) > 0:
         assembler_dge.loc[group.index, "de"] = True
 
-cds_contig_dict = assembler_dge.drop_duplicates(subset="gene_name").set_index("gene_name")[["ContigName", "de"]].apply(list, axis=1).to_dict()
+cds_contig_dict = (
+    assembler_dge.drop_duplicates(subset="gene_name")
+    .set_index("gene_name")[["ContigName", "de"]]
+    .apply(list, axis=1)
+    .to_dict()
+)
 
 contig_map, de_map = zip(*[cds_contig_dict.get(gene, ["", False]) for gene in gene_summary["ContigName"]])
 
@@ -47,6 +52,13 @@ pred_labels = (gene_summary["assembler_de"]).astype(int)
 
 cm = confusion_matrix(true_labels, pred_labels, labels=[0, 1])
 
-linear_cm = {f"{row_prefix}DE_TN": cm[0, 0], f"{row_prefix}DE_FP": cm[0, 1], f"{row_prefix}DE_FN": cm[1, 0], f"{row_prefix}DE_TP": cm[1, 1]}
+linear_cm = {
+    f"{row_prefix}DE_TN": cm[0, 0],
+    f"{row_prefix}DE_FP": cm[0, 1],
+    f"{row_prefix}DE_FN": cm[1, 0],
+    f"{row_prefix}DE_TP": cm[1, 1],
+}
 
-pd.DataFrame.from_dict(linear_cm, orient="index", columns=[prefix]).to_csv(f"{row_prefix}{prefix}_linear_cm.tsv", sep="\t")
+pd.DataFrame.from_dict(linear_cm, orient="index", columns=[prefix]).to_csv(
+    f"{row_prefix}{prefix}_linear_cm.tsv", sep="\t"
+)

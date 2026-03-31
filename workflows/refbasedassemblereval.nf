@@ -80,9 +80,8 @@ include { SEQKIT_SEQ                  } from '../modules/nf-core/seqkit/seq/main
 include { SEQKIT_GREP                 } from '../modules/nf-core/seqkit/grep/main'
 include { GATHERRESULTS               } from '../modules/local/scripts/gather_results/main'
 include { CATEGORIZECONTIGS           } from '../modules/local/scripts/categorize_contigs/main'
-include { EXTRACTMAPPEDVALUES; EXTRACTMAPPEDVALUES as EXTRACTMAPPEDVALUES_OVERLAP } from '../modules/local/jq/extract_values/main'
+include { EXTRACTMAPPEDVALUES } from '../modules/local/jq/extract_values/main'
 include { EXTRACTIDS                  } from '../modules/local/scripts/extract_ids/main'
-include { CALCULATEFINALSCORES        } from '../modules/local/scripts/calculate_final_scores/main'
 include { CALCULATEREFERENCEINFO      } from '../modules/local/scripts/calculate_reference_info/main'
 include { MAKEHISTOGRAMS              } from '../modules/local/scripts/make_histograms/main'
 include { SORTDATAFRAME                } from '../modules/local/scripts/sort_dataframe/main'
@@ -166,18 +165,6 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
 
-    MINIMAP2_MAP.out.mapping.join(
-        assembler_contigs
-    ).combine(
-        gene_summary
-    ).set { mapping_contigs_gene_summary }
-
-    MINIMAP2CLASSIFICATION(
-        mapping_contigs_gene_summary
-    )
-
-    ch_versions = ch_versions.mix(MINIMAP2_MAP.out.versions)
-
     assembler_contigs
     .combine(overlap_blocks_ch)
     .multiMap { it ->
@@ -192,24 +179,26 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(MINIMAP2_MAP_OVERLAP.out.versions)
 
-    MINIMAP2_MAP_OVERLAP.out.mapping.join(
-        assembler_contigs.map {
-            [["id":it[0]["id"]], it[1]]
-        }
-    ).set { overlap_mapping_contigs }
-
-    MINIMAP2OVERLAPSELECTION (
-        overlap_mapping_contigs
+    MINIMAP2OVERLAPSELECTION(
+        MINIMAP2_MAP_OVERLAP.out.mapping
     )
 
     ch_versions = ch_versions.mix(MINIMAP2OVERLAPSELECTION.out.versions)
 
-    MINIMAP2CLASSIFICATION.out.map.join(
-        MINIMAP2OVERLAPSELECTION.out.map
-    ).set { all_mapping }
+    MINIMAP2_MAP.out.mapping.join(
+        MINIMAP2OVERLAPSELECTION.out.overlap_blocks
+    ).join(
+        assembler_contigs
+    ).combine(
+        gene_summary
+    ).set { overlap_mapping_contig_gene_summary }
 
-    EXTRACTMAPPEDIDS(
-        all_mapping
+    MINIMAP2CLASSIFICATION(
+        overlap_mapping_contig_gene_summary
+    )
+
+    EXTRACTMAPPEDIDS( 
+        MINIMAP2CLASSIFICATION.out.map
     )
 
     ch_versions = ch_versions.mix(EXTRACTMAPPEDIDS.out.versions)
@@ -296,17 +285,11 @@ workflow ASSEMBLEREVAL {
 
     ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES.out.versions)
 
-    EXTRACTMAPPEDVALUES_OVERLAP (
-        MINIMAP2OVERLAPSELECTION.out.map
-    )
-
-    ch_versions = ch_versions.mix(EXTRACTMAPPEDVALUES_OVERLAP.out.versions)
-
     assembler_contigs.join(
         SEQKIT_GREP.out.filter
     ).join(
         SEQKIT_SEQ.out.fastx
-    ). set { contigs_filtered }
+    ).set { contigs_filtered }
 
     EXTRACTIDS(
         contigs_filtered
@@ -316,10 +299,6 @@ workflow ASSEMBLEREVAL {
 
     EXTRACTIDS.out.contig_ids.join(
         MINIMAP2CLASSIFICATION.out.categories
-    ).join(
-        EXTRACTMAPPEDVALUES_OVERLAP.out.values.map {
-            [["id":it[0]["id"]], it[1]]
-        }
     ).join(
         STACKDATAFRAMES.out.stacked_dfs
     ).combine(
@@ -342,9 +321,8 @@ workflow ASSEMBLEREVAL {
     
     GATHERRESULTS.out.scores.mix(
         MINIMAP2CLASSIFICATION.out.category_counts
-    ).mix(
-        MINIMAP2OVERLAPSELECTION.out.n_counts
-    ).groupTuple().set { joined_scores }
+    ).groupTuple()
+    .set { joined_scores }
 
     STACKSCORES(
         joined_scores
@@ -362,23 +340,6 @@ workflow ASSEMBLEREVAL {
     )
 
     ch_versions = ch_versions.mix(MERGEDATAFRAMESMAPPING.out.versions)
-
-    MERGEDATAFRAMESMAPPING.out.merged_dfs.combine(
-        blocks_tsv_ch.map {
-            it[1]
-        }
-    )
-    .combine(
-        overlap_blocks_tsv_ch.map {
-            it[1]
-        }
-    ).set { all_scores_with_block }
-
-    CALCULATEFINALSCORES(
-        all_scores_with_block
-    )
-
-    ch_versions = ch_versions.mix(CALCULATEFINALSCORES.out.versions)
     
     CALCULATEREFERENCEINFO(
         reference_cds_val,
@@ -458,7 +419,7 @@ workflow ASSEMBLEREVAL {
     ch_versions = ch_versions.mix(MAKEHISTOGRAMS.out.versions)
 
     SORTDATAFRAME(
-        CALCULATEFINALSCORES.out.final_scores,
+        MERGEDATAFRAMESMAPPING.out.merged_dfs,
         Channel.of(1)
     )
 

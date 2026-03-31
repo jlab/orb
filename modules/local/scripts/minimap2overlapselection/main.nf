@@ -5,12 +5,10 @@ process MINIMAP2OVERLAPSELECTION {
     container "quay.io/tensulin/orb_toolchain:1.0"
 
     input:
-    tuple val(meta), path(mapping), path(contigs)
+    tuple val(meta), path(mapping)
 
     output:
-    tuple val(meta), path("${prefix}_overlap_recovered.json")   , emit: map
-    tuple val(meta), path("${prefix}_minimap2_overlap_blocks.tsv"), emit: categories
-    tuple val(meta), path("${prefix}_overlap_n_counts.tsv"), emit: n_counts
+    tuple val(meta), path("${prefix}_mapped_overlap_blocks.tsv"), emit: overlap_blocks
     path  "versions.yml"              , emit: versions
 
     when:
@@ -22,7 +20,7 @@ process MINIMAP2OVERLAPSELECTION {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    minimap2_overlap_selection.py ${mapping} ${contigs} ${args} ${prefix} 
+    minimap2_overlap_selection.py ${mapping} ${args} ${prefix} 
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

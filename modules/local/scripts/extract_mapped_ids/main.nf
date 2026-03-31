@@ -5,7 +5,7 @@ process EXTRACTMAPPEDIDS {
     container "quay.io/biocontainers/jq:1.5--4"
 
     input:
-    tuple val(meta), path(mapped_contigs), path(mapped_contigs_chim)
+    tuple val(meta), path(mapped_contigs)
 
     output:
     tuple val(meta), path("${prefix}_mapped_ids.txt")       , emit: mapped_ids
@@ -19,7 +19,7 @@ process EXTRACTMAPPEDIDS {
     prefix = task.ext.prefix ?: "${meta.id}"
 
     """
-    jq -r 'keys[]' ${mapped_contigs} ${mapped_contigs_chim} > ${prefix}_mapped_ids.txt
+    jq -r 'keys[]' ${mapped_contigs} > ${prefix}_mapped_ids.txt
 
     cat <<-END_VERSIONS > versions.yml
     "${task.process}":

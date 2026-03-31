@@ -4,6 +4,7 @@ import re
 import pandas as pd
 import sys
 
+
 def parse_bowtie2_log(filepath):
     stats = {
         "total_reads": None,
@@ -19,7 +20,7 @@ def parse_bowtie2_log(filepath):
         "overall_alignment_rate": None,
     }
 
-    with open(filepath, 'r') as file:
+    with open(filepath, "r") as file:
         for line in file:
             line = line.strip()
             if match := re.match(r"^(\d+) reads; of these:", line):
@@ -49,10 +50,11 @@ def parse_bowtie2_log(filepath):
 
     return stats
 
+
 log_file = sys.argv[1]
 colname = sys.argv[2]
 
 logs_dict = parse_bowtie2_log(log_file)
-logs_df = pd.DataFrame.from_dict(logs_dict, orient='index')
+logs_df = pd.DataFrame.from_dict(logs_dict, orient="index")
 logs_df.columns = [colname]
-logs_df.to_csv(sys.stdout, sep='\t')
+logs_df.to_csv(sys.stdout, sep="\t")
