@@ -1,4 +1,4 @@
-[![GitHub Actions Linting Status](https://github.com/jlab/refbasedassemblereval/workflows/linting/badge.svg)](https://github.com/jlab/refbasedassemblereval/actions?query=workflow%3A%22linting%22)
+[![linting](https://github.com/jlab/orb/actions/workflows/linting.yml/badge.svg)](https://github.com/jlab/orb/actions/workflows/linting.yml)
 
 [![Nextflow](https://img.shields.io/badge/nextflow%20DSL2-%E2%89%A523.04.0-23aa62.svg)](https://www.nextflow.io/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
