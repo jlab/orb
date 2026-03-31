@@ -1034,6 +1034,7 @@ def plot_block_correlation(
     assemblers = settings["labels"]["assemblers"]
     # 'Mann-Whitney', 't-test_ind', 'Wilcoxon'
 
+    block_colors = {"recovered": "lightgreen", "missed": "#dddddd"}
     for i, environment in tqdm(enumerate(environments), disable=not verbose, desc=f"Drawing panels for {field} plot"):
         ax = axes[i]
         plotdata = data_block_recovery[environment]
@@ -1050,7 +1051,7 @@ def plot_block_correlation(
             x=field,
             hue="category",
             ax=ax,
-            palette={"recovered": "lightgreen", "missed": "#dddddd"},
+            palette=block_colors,
             showfliers=False,
             hue_order=hue_order,
             order=ordered_assembler,
@@ -1079,6 +1080,21 @@ def plot_block_correlation(
             fontsize=16,
             fontweight="bold",
         )
+
+        ns = plotdata.groupby(["assembler", "category"]).size()
+        ax_ns = ax.twinx()
+        ax_ns.set_ylim(ax.get_ylim())
+        ns_labels = []
+        ns_colors = []
+        for ass_label in ordered_assembler:
+            for cat in hue_order:
+                ns_labels.append(f"n={ns.loc[ass_label, cat]:,}")
+                ns_colors.append({'lightgreen': 'darkgreen', '#dddddd': 'darkgray'}.get(block_colors[cat]))
+        ax_ns.set_yticks([x + offset for x in ax.get_yticks() for offset in [-0.2, 0.2]],
+                         labels=ns_labels,
+                         fontsize=8)
+        for color, label in zip(ns_colors, ax_ns.get_yticklabels()):
+            label.set_color(color)
 
         if test is not None:
             annotator = Annotator(
@@ -1128,6 +1144,7 @@ def plot_block_correlation(
                 [0, 100, 200, 300, 400, 500, 1000, 2000, 3000],
                 labels=["0", "", "", "", "", "500", "1000", "2000", "3000"],
             )
+
     return fig
 
 
