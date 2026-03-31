@@ -44,19 +44,20 @@ unmapped_contigs = all_contigs_ids[~all_contigs_ids.isin(assembler_mapping[0].un
 
 assembler_mapping = assembler_mapping[assembler_mapping[0].isin(all_contigs_ids)]
 
-assembler_mapping["origin_gene"] = assembler_mapping[3].apply(lambda x:   re.sub(r"(.*?_.*?)_.*", r"\1", x))
+assembler_mapping["origin_gene"] = assembler_mapping[3].apply(lambda x: re.sub(r"(.*?_.*?)_.*", r"\1", x))
 
 assembler_mapping["origin_orthogroup"] = assembler_mapping["origin_gene"].apply(lambda x: gene_og_dict.get(x))
 
 contig_aggregation = assembler_mapping.groupby(0).agg(
-    origin_gene_nunique=("origin_gene", "nunique"),
-    origin_orthogroup_nunique=("origin_orthogroup", "nunique")
+    origin_gene_nunique=("origin_gene", "nunique"), origin_orthogroup_nunique=("origin_orthogroup", "nunique")
 )
 
 single_mapped_contigs = contig_aggregation[contig_aggregation["origin_gene_nunique"] == 1].index
 multi_mapped_contigs = contig_aggregation[contig_aggregation["origin_gene_nunique"] != 1].index
 
-number_ogs_per_multimapped = contig_aggregation[contig_aggregation["origin_gene_nunique"] != 1]["origin_orthogroup_nunique"].value_counts()
+number_ogs_per_multimapped = contig_aggregation[contig_aggregation["origin_gene_nunique"] != 1][
+    "origin_orthogroup_nunique"
+].value_counts()
 
 multi_og_contigs = number_ogs_per_multimapped[number_ogs_per_multimapped.index != 1].sum()
 single_og_contigs = number_ogs_per_multimapped[number_ogs_per_multimapped.index == 1].sum()
@@ -80,20 +81,77 @@ for record in SeqIO.parse(contig_fasta, "fasta"):
             unmpapped_contig_lengths_multi.append(record_length)
 
 
-result_dict = {"total_contigs": len_all_contigs_ids, "total_bases": sum(mapped_contig_lengths) + sum(unmpapped_contig_lengths_single) + sum(unmpapped_contig_lengths_multi),
-               "mapped_contigs": len(mapped_ids), "length_filtered_contigs": len(length_filtered_ids),
-               "unmapped_contigs": len(unmapped_contigs), "multi_mapped_contigs": len(multi_mapped_contigs), "multi_mapped_contigs_single_og":
-               single_og_contigs, "multi_mapped_contigs_multi_og": multi_og_contigs, "single_mapped_contigs": len(single_mapped_contigs),
-               "mapped_contig_bases": sum(mapped_contig_lengths), "unmapped_contig_bases": sum(unmpapped_contig_lengths_single) + sum(unmpapped_contig_lengths_multi),}
+result_dict = {
+    "total_contigs": len_all_contigs_ids,
+    "total_bases": sum(mapped_contig_lengths)
+    + sum(unmpapped_contig_lengths_single)
+    + sum(unmpapped_contig_lengths_multi),
+    "mapped_contigs": len(mapped_ids),
+    "length_filtered_contigs": len(length_filtered_ids),
+    "unmapped_contigs": len(unmapped_contigs),
+    "multi_mapped_contigs": len(multi_mapped_contigs),
+    "multi_mapped_contigs_single_og": single_og_contigs,
+    "multi_mapped_contigs_multi_og": multi_og_contigs,
+    "single_mapped_contigs": len(single_mapped_contigs),
+    "mapped_contig_bases": sum(mapped_contig_lengths),
+    "unmapped_contig_bases": sum(unmpapped_contig_lengths_single) + sum(unmpapped_contig_lengths_multi),
+}
 
 pd.DataFrame.from_dict(result_dict, orient="index", columns=[prefix]).to_csv(f"{prefix}_scores.tsv", sep="\t")
 
-pd.DataFrame({prefix: mapped_contig_lengths + unmpapped_contig_lengths_single + unmpapped_contig_lengths_multi}).to_csv(f"{prefix}_all_contig_lengths.tsv", sep="\t", index=False)
+pd.DataFrame({prefix: mapped_contig_lengths + unmpapped_contig_lengths_single + unmpapped_contig_lengths_multi}).to_csv(
+    f"{prefix}_all_contig_lengths.tsv", sep="\t", index=False
+)
 pd.DataFrame({prefix: mapped_contig_lengths}).to_csv(f"{prefix}_mapped_contig_lengths.tsv", sep="\t", index=False)
-pd.DataFrame({prefix: unmpapped_contig_lengths_single}).to_csv(f"{prefix}_unmapped_contig_lengths_single.tsv", sep="\t", index=False)
-pd.DataFrame({prefix: unmpapped_contig_lengths_multi}).to_csv(f"{prefix}_unmapped_contig_lengths_multi.tsv", sep="\t", index=False)
+pd.DataFrame({prefix: unmpapped_contig_lengths_single}).to_csv(
+    f"{prefix}_unmapped_contig_lengths_single.tsv", sep="\t", index=False
+)
+pd.DataFrame({prefix: unmpapped_contig_lengths_multi}).to_csv(
+    f"{prefix}_unmapped_contig_lengths_multi.tsv", sep="\t", index=False
+)
 
-pd.DataFrame({prefix: pd.concat([pd.Series(mapped_contig_lengths + unmpapped_contig_lengths_single + unmpapped_contig_lengths_multi).describe(), pd.Series({"total_length": sum(mapped_contig_lengths + unmpapped_contig_lengths_single + unmpapped_contig_lengths_multi)})])}).to_csv(f"{prefix}_all_contig_lengths_summary.tsv", sep="\t")
-pd.DataFrame({prefix: pd.concat([pd.Series(mapped_contig_lengths).describe(), pd.Series({"total_length": sum(mapped_contig_lengths)})])}).to_csv(f"{prefix}_mapped_contig_lengths_summary.tsv", sep="\t")
-pd.DataFrame({prefix: pd.concat([pd.Series(unmpapped_contig_lengths_multi).describe(), pd.Series({"total_length": sum(unmpapped_contig_lengths_multi)})])}).to_csv(f"{prefix}_unmapped_contig_lengths_multi_summary.tsv", sep="\t")
-pd.DataFrame({prefix: pd.concat([pd.Series(unmpapped_contig_lengths_single).describe(), pd.Series({"total_length": sum(unmpapped_contig_lengths_single)})])}).to_csv(f"{prefix}_unmapped_contig_lengths_single_summary.tsv", sep="\t")
+pd.DataFrame(
+    {
+        prefix: pd.concat(
+            [
+                pd.Series(
+                    mapped_contig_lengths + unmpapped_contig_lengths_single + unmpapped_contig_lengths_multi
+                ).describe(),
+                pd.Series(
+                    {
+                        "total_length": sum(
+                            mapped_contig_lengths + unmpapped_contig_lengths_single + unmpapped_contig_lengths_multi
+                        )
+                    }
+                ),
+            ]
+        )
+    }
+).to_csv(f"{prefix}_all_contig_lengths_summary.tsv", sep="\t")
+pd.DataFrame(
+    {
+        prefix: pd.concat(
+            [pd.Series(mapped_contig_lengths).describe(), pd.Series({"total_length": sum(mapped_contig_lengths)})]
+        )
+    }
+).to_csv(f"{prefix}_mapped_contig_lengths_summary.tsv", sep="\t")
+pd.DataFrame(
+    {
+        prefix: pd.concat(
+            [
+                pd.Series(unmpapped_contig_lengths_multi).describe(),
+                pd.Series({"total_length": sum(unmpapped_contig_lengths_multi)}),
+            ]
+        )
+    }
+).to_csv(f"{prefix}_unmapped_contig_lengths_multi_summary.tsv", sep="\t")
+pd.DataFrame(
+    {
+        prefix: pd.concat(
+            [
+                pd.Series(unmpapped_contig_lengths_single).describe(),
+                pd.Series({"total_length": sum(unmpapped_contig_lengths_single)}),
+            ]
+        )
+    }
+).to_csv(f"{prefix}_unmapped_contig_lengths_single_summary.tsv", sep="\t")

@@ -51,10 +51,12 @@ def calculate_og_seq_ident(summary_df, sequences_file, env_name, clear_cache=Fal
         og_names.append(og)
         mean_ids.append(mean_id)
 
-    df = pd.DataFrame({
-        "og_name": og_names,
-        "mean_identity": mean_ids,
-    })
+    df = pd.DataFrame(
+        {
+            "og_name": og_names,
+            "mean_identity": mean_ids,
+        }
+    )
 
     df.to_csv(f"data_cache/{og_identity_file}", index=False)
     return df
