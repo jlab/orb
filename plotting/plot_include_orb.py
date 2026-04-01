@@ -1089,10 +1089,8 @@ def plot_block_correlation(
         for ass_label in ordered_assembler:
             for cat in hue_order:
                 ns_labels.append(f"n={ns.loc[ass_label, cat]:,}")
-                ns_colors.append({'lightgreen': 'darkgreen', '#dddddd': 'darkgray'}.get(block_colors[cat]))
-        ax_ns.set_yticks([x + offset for x in ax.get_yticks() for offset in [-0.2, 0.2]],
-                         labels=ns_labels,
-                         fontsize=8)
+                ns_colors.append({"lightgreen": "darkgreen", "#dddddd": "darkgray"}.get(block_colors[cat]))
+        ax_ns.set_yticks([x + offset for x in ax.get_yticks() for offset in [-0.2, 0.2]], labels=ns_labels, fontsize=8)
         for color, label in zip(ns_colors, ax_ns.get_yticklabels()):
             label.set_color(color)
 
