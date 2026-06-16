@@ -17,6 +17,34 @@ nextflow.enable.dsl = 2
 
 include { validateParameters; paramsHelp } from 'plugin/nf-validation'
 
+def checkPattern(pattern, name) {
+    try {
+        def matches = file(pattern)
+        if (matches.size() == 0) {
+            error "ERROR: The parameter for config: ${name} does not match any files: ${pattern}"
+        }
+    }
+    catch (Exception e) {
+        error "ERROR: The parameter for config: ${name} does not exist or cannot be resolved: ${pattern}"
+    }
+}
+
+def validateOrbParams() {
+    def patterns = [
+        "params.contigs"    : params.contigs,
+        "params.reference_cds" : params.reference_cds,
+        "params.blocks" : params.blocks,
+        "params.blocks_tsv" : params.blocks_tsv,
+        "params.overlap_blocks" : params.overlap_blocks,
+        "params.overlap_blocks_tsv" : params.overlap_blocks_tsv,
+        "params.gene_summary" : params.gene_summary,
+    ]
+
+    patterns.each { name, pattern ->
+        checkPattern(pattern, name)
+    }
+}
+
 // Print help message if needed
 if (params.help) {
     def logo = NfcoreTemplate.logo(workflow, params.monochrome_logs)
@@ -29,7 +57,9 @@ if (params.help) {
 // Validate input parameters
 if (params.validate_params) {
     validateParameters()
+    validateOrbParams()
 }
+
 
 WorkflowMain.initialise(workflow, params, log)
 

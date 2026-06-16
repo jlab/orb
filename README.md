@@ -69,6 +69,10 @@ This script will take some time for the first run. If you recreate environments,
 
 Individual plots may also be imported in a notebook from plot_include_orb and be created there.
 
+
+### Usage Note
+The workflow work_dir will be very large if executed multiple times. Consider deleting it if you do not need caching or excluding it from backup if applicable.
+
 ## Credits
 
 jlab/refbasedassemblereval was originally written by Timo Wentong Lin.
