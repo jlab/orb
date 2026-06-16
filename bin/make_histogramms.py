@@ -51,4 +51,3 @@ for ax in axes.flatten():
 plt.tight_layout()
 plt.savefig(f"{prefix}_log_histograms.png", dpi=900)
 plt.close()
-

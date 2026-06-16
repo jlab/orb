@@ -9,6 +9,7 @@ from pathlib import Path
 
 logger = logging.getLogger()
 
+
 def read_head(handle, num_lines=10):
     """Read the specified number of lines from the current position in the file."""
     lines = []
@@ -55,10 +56,11 @@ class RowChecker:
         row[self._sample_col] = row[self._sample_col].replace(" ", "_")
 
     def _validate_assemblers(self, row):
-        assemblers = row[self._assemblers_col].split(';')
+        assemblers = row[self._assemblers_col].split(";")
         if not assemblers:
             raise AssertionError("At least one assembler is required.")
         row[self._assemblers_col] = assemblers
+
 
 def check_samplesheet(file_in, file_out):
     required_columns = {"sample", "assemblers"}
@@ -86,8 +88,9 @@ def check_samplesheet(file_in, file_out):
         writer = csv.DictWriter(out_handle, header, delimiter=",")
         writer.writeheader()
         for row in checker.modified:
-            row['assemblers'] = ';'.join(row['assemblers'])
+            row["assemblers"] = ";".join(row["assemblers"])
             writer.writerow(row)
+
 
 def parse_args(argv=None):
     """Define and immediately parse command line arguments."""
@@ -126,6 +129,7 @@ def main(argv=None):
         sys.exit(2)
     args.file_out.parent.mkdir(parents=True, exist_ok=True)
     check_samplesheet(args.file_in, args.file_out)
+
 
 # Rest of the code remains the same.
 

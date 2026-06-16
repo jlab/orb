@@ -1,10 +1,11 @@
-[![GitHub Actions CI Status](https://github.com/jlab/refbasedassemblereval/workflows/nf-core%20CI/badge.svg)](https://github.com/jlab/refbasedassemblereval/actions?query=workflow%3A%22nf-core+CI%22)
-[![GitHub Actions Linting Status](https://github.com/jlab/refbasedassemblereval/workflows/nf-core%20linting/badge.svg)](https://github.com/jlab/refbasedassemblereval/actions?query=workflow%3A%22nf-core+linting%22)[![Cite with Zenodo](http://img.shields.io/badge/DOI-10.5281/zenodo.XXXXXXX-1073c8?labelColor=000000)](https://doi.org/10.5281/zenodo.XXXXXXX)
+[![linting](https://github.com/jlab/orb/actions/workflows/linting.yml/badge.svg)](https://github.com/jlab/orb/actions/workflows/linting.yml)
 
 [![Nextflow](https://img.shields.io/badge/nextflow%20DSL2-%E2%89%A523.04.0-23aa62.svg)](https://www.nextflow.io/)
-[![run with conda](http://img.shields.io/badge/run%20with-conda-3EB049?labelColor=000000&logo=anaconda)](https://docs.conda.io/en/latest/)
 [![run with docker](https://img.shields.io/badge/run%20with-docker-0db7ed?labelColor=000000&logo=docker)](https://www.docker.com/)
 [![run with singularity](https://img.shields.io/badge/run%20with-singularity-1d355c.svg?labelColor=000000)](https://sylabs.io/docs/)
+[![run with apptainer](https://img.shields.io/badge/run%20with-apptainer-1d355c.svg?labelColor=000000)](https://apptainer.org/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.20157750.svg)](https://doi.org/10.5281/zenodo.20157750)
+
 [![Launch on Nextflow Tower](https://img.shields.io/badge/Launch%20%F0%9F%9A%80-Nextflow%20Tower-%234256e7)](https://tower.nf/launch?pipeline=https://github.com/jlab/refbasedassemblereval)
 
 # ORB (Omics reference based benchmarking)
@@ -17,13 +18,13 @@
 
 Recommended usage:
 
-* Create *in silico* datasets using [Marbel](https://anaconda.org/bioconda/marbel), name the output dirs: NAME_microbiome
-* Assemble the datasets
-* Run the pipeline
+- Create _in silico_ datasets using [Marbel](https://anaconda.org/bioconda/marbel), name the output dirs: NAME_microbiome
+- Assemble the datasets
+- Run the pipeline
 
 Fill the required parameters per run and adjust the example config files in `example/tool.config`, `example/dataset.config` and `example/resources.config`.
 
-For each dataset create a dataset.config with the data set name. For outdir parameter chose the same parent dir, if you want to visualise the datasets together, e.g., PATH/group/dataset1, PATH/group/dataset2. 
+For each dataset create a dataset.config with the data set name. For outdir parameter chose the same parent dir, if you want to visualise the datasets together, e.g., PATH/group/dataset1, PATH/group/dataset2.
 
 Run each dataset with:
 
@@ -35,7 +36,7 @@ nextflow run . \
    -c example/tool.config
 ```
 
-Afterwards there is multiple methods which can visualise the runs. A script which creates all orb files is provided: 
+Afterwards there is multiple methods which can visualise the runs. A script which creates all orb files is provided:
 `plotting/plot_orb_figures.py
 
 For the dependencies you can use:
@@ -52,7 +53,7 @@ python plotting/plot_orb_figures.py <fp_orb_basedir> <fp_marbel_basedir> <marbel
 
 `fp_orb_basedir`: Path of the results for orb.
 
-`fp_marbel_basedir`: Path to the *in silico* datasets. Datasets folders require _microbiome suffix.
+`fp_marbel_basedir`: Path to the _in silico_ datasets. Datasets folders require \_microbiome suffix.
 
 `marbel_sequence_file`: Path to the bio index file of the [Marbel repository](https://github.com/jlab/marbel): `src/marbel/data/deduplicated_pangenome_EDGAR_Microbiome_JLAB2.fas.bgz.bio_index`
 

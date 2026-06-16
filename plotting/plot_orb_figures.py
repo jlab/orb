@@ -12,10 +12,14 @@ def save_plot(fig, plot_name, out_dir, file_ending):
 
 fp_orb = "/vol/jlab/tlin/all_project/nf_results/orb/recovered_fix"
 fp_marbel_basedir = "/vol/jlab/tlin/marbel_benchmarking_integration/benchmarking_sets_all_sparse_fixed_libsize"
-sequence_df_file = "/homes/tlin/Projects/marbel/src/marbel/data/deduplicated_pangenome_EDGAR_Microbiome_JLAB2.fas.bgz.bio_index"
+sequence_df_file = (
+    "/homes/tlin/Projects/marbel/src/marbel/data/deduplicated_pangenome_EDGAR_Microbiome_JLAB2.fas.bgz.bio_index"
+)
 
 if len(sys.argv) < 2:
-    print("Usage: plot_orb_figures.py <fp_orb_basedir> <fp_marbel_basedir> <marbel_sequence_file> <settings> <file_ending_svg_or_png> <outdir_name> <caviar_log_files>")
+    print(
+        "Usage: plot_orb_figures.py <fp_orb_basedir> <fp_marbel_basedir> <marbel_sequence_file> <settings> <file_ending_svg_or_png> <outdir_name> <caviar_log_files>"
+    )
     sys.exit(1)
 
 

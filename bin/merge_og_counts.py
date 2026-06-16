@@ -14,9 +14,7 @@ mt_genes = pl.read_csv(gene_summary_file)
 samples = [col for col in mt_genes.columns if re.search(r"_sample_", col)]
 
 # aggregate by orthogroups
-mt_ogs_aggregated = mt_genes.group_by("orthogroup").agg(
-    (pl.col(samples).sum())
-)
+mt_ogs_aggregated = mt_genes.group_by("orthogroup").agg((pl.col(samples).sum()))
 mt_ogs_aggregated = mt_ogs_aggregated.rename({"orthogroup": "Name"})
 
 args = "group_1 10 group_2 10 \t".split(" ")

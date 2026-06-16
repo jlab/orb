@@ -16,6 +16,7 @@ def merge_dfs(df_files):
     dfs = dfs.fillna(0)
     dfs.to_csv(sys.stdout, sep="\t", index=True)
 
+
 len_args = len(sys.argv)
 df_files = sys.argv[1:len_args]
 merge_dfs(df_files)

@@ -2,7 +2,6 @@
 
 """Provide a command line tool to validate and transform tabular samplesheets."""
 
-
 import argparse
 import csv
 import logging
@@ -29,12 +28,7 @@ class RowChecker:
     )
 
     def __init__(
-        self,
-        sample_col="sample",
-        first_col="fastq_1",
-        second_col="fastq_2",
-        single_col="single_end",
-        **kwargs
+        self, sample_col="sample", first_col="fastq_1", second_col="fastq_2", single_col="single_end", **kwargs
     ):
         """
         Initialize the row checker with the expected column names.

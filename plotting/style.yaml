@@ -1,187 +1,201 @@
 # environments that are present as directories, but shall not be included into figures
 skip_environments:
-  - 'fixed_insert'
-  - 'recovered_fix'
+  - "fixed_insert"
+  - "recovered_fix"
 # goodblockcount: is the block count used for missed blocks calclculation
 # singlerecovery: is the contig corresponding to a single recovery
 contig_classes:
   minimap2_single_recovered:
     class: good
-    color: 'darkgreen'
-    label: 'recovered'
-    goodblockcount: True 
+    color: "darkgreen"
+    label: "recovered"
+    goodblockcount: True
     singlerecovery: True
-    simplelabel: 'recovered'
-  chimeric_mapped_contigs:
+    simplelabel: "recovered"
+  overlap_block:
     class: good
-    color: 'green'
-    label: 'overlapping annotation'
+    color: "green"
+    label: "overlapping annotation"
     goodblockcount: True
     singlerecovery: False
-    simplelabel: 'recovered'
+    simplelabel: "overlap_block"
   multi_mapped_contigs_single_og:
     class: good
-    color: 'lightgreen'
-    label: 'orthologous recovered'
+    color: "lightgreen"
+    label: "orthologous recovered"
     goodblockcount: True
     singlerecovery: False
-    simplelabel: 'orthologous_recovered'
+    simplelabel: "orthologous_recovered"
   minimap2_merged_recovered:
     class: good
-    color: 'aquamarine'
-    label: 'minimap2 merged recovered'
+    color: "aquamarine"
+    label: "minimap2 merged recovered"
     goodblockcount: False
     singlerecovery: True
-    simplelabel: 'none'
+    simplelabel: "recovered"
   minimap2_merged_recovered_blocks:
     class: good_block
-    color: 'aquamarine'
-    label: 'minimap2 merged recovered blocks'
+    color: "aquamarine"
+    label: "minimap2 merged recovered blocks"
     goodblockcount: True
     singlerecovery: False
-    simplelabel: 'recovered'
+    simplelabel: "none"
   minimap2_orthologous_recovered:
     class: good
-    color: 'lime'
-    label: 'minimap2 orthologous recovered'
+    color: "lime"
+    label: "minimap2 orthologous recovered"
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'none'
+    simplelabel: "orthologous_recovered"
   minimap2_orthologous_recovered_blocks:
     class: good_block
-    color: 'lime'
-    label: 'minimap2 orthologous recovered blocks'
+    color: "lime"
+    label: "minimap2 orthologous recovered blocks"
     goodblockcount: True
     singlerecovery: False
-    simplelabel: 'orthologous_recovered'
+    simplelabel: "none"
   missed:
     class: neutral
-    color: '#dddddd'
-    label: 'missed blocks'
+    color: "#dddddd"
+    label: "missed blocks"
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'missed'
+    simplelabel: "missed"
   minimap2_chimeric:
     class: bad
-    color: '#c32aff'
-    label: 'minimap2 chimera'
+    color: "#c32aff"
+    label: "mosaic chimera"
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'chimera'
+    simplelabel: "minimap2_chimeric"
   minimap2_duplicated_non_chimeric:
     class: bad
-    color: '#d9c1db'
-    label: 'duplicated'
+    color: "#d9c1db"
+    label: "duplicated"
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'none'
+    simplelabel: "none"
   minimap2_duplicated_chimeric:
     minimap2_chimeric:
     class: bad
-    color: '#E4A1CA'
-    label: 'duplicated and chimeric'
+    color: "#E4A1CA"
+    label: "duplicated and chimeric"
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'none'
+    simplelabel: "none"
   unmapped_contigs:
     class: bad
-    color: '#B84303'
-    label: 'hallucinated'
+    color: "#B84303"
+    label: "hallucinated"
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'hallucinated'
+    simplelabel: "hallucinated"
   multi_mapped_contigs_multi_og:
     class: bad
-    color: '#F00F18'
-    label: 'chimera'
+    color: "#F00F18"
+    label: "diffuse chimera"
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'chimera'
+    simplelabel: "multi_mapped_contigs_multi_og"
   single_mapped_contigs:
     class: bad
-    color: '#FECB47'
-    label: 'incomplete'
+    color: "#FECB47"
+    label: "incomplete"
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'incomplete'
+    simplelabel: "incomplete"
   length_filtered_contigs:
     class: bad
-    color: '#FEEAA2'
-    label: 'length filtered'
+    color: "#FEEAA2"
+    label: "length filtered"
     goodblockcount: False
     singlerecovery: False
-    simplelabel: 'length_filtered'
+    simplelabel: "length_filtered"
 
 # oprtion: legend position count from zero
 simplelabels:
-  chimera:
+  minimap2_chimeric:
     class: bad
-    color: '#F00F18'
-    label: 'chimera'
-    legend_position: 6
+    color: "#FECB47"
+    label: "mosaic chimera"
+    legend_position: 8
+  multi_mapped_contigs_multi_og:
+    class: bad
+    color: "#c32aff"
+    label: "diffuse chimera"
+    legend_position: 7
   incomplete:
     class: bad
-    color: '#FECB47'
-    label: 'incomplete'
-    legend_position: 4
+    color: "#F00F18"
+    label: "incomplete"
+    legend_position: 6
   hallucinated:
     class: bad
-    color: '#B84303'
-    label: 'hallucinated'
+    color: "#B84303"
+    label: "hallucinated"
     legend_position: 5
   length_filtered:
     class: bad
-    color: '#FEEAA2'
-    label: 'length filtered'
-    legend_position: 3
+    color: "#FEEAA2"
+    label: "length filtered"
+    legend_position: 4
   recovered:
     class: good
-    color: 'darkgreen'
-    label: 'recovered'
+    color: "darkgreen"
+    label: "recovered"
     legend_position: 0
   orthologous_recovered:
     class: good
-    color: 'lightgreen'
-    label: 'orthologous recovered'
+    color: "lightgreen"
+    label: "orthologous recovered"
     legend_position: 1
+  overlap_block:
+    class: good
+    color: "green"
+    label: "overlapping annotation"
+    legend_position: 2
   missed:
     class: neutral
-    color: '#dddddd'
-    label: 'missed blocks'
-    legend_position: 2
+    color: "#dddddd"
+    label: "missed blocks"
+    legend_position: 3
 
 # rename ugly technical names with pretty tool / environment labels
 labels:
   assemblers:
-    dbg: 'dbg'
-    ibda_tran: 'IDBA-tran'
-    idba_mt: 'IDBA-MT'
-    idba_mt_fasta: 'IDBA-MT'
-    megahit: 'MEGAHIT'
-    oases: 'Oases'
-    rnaspades: 'rnaSPAdes'
-    soap-denovo-trans: 'SOAPdenovo-Trans'
-    soap_denovo_trans: 'SOAPdenovo-Trans'
-    transabyss: 'Trans-ABySS'
-    transabyss_transabyss: 'Trans-ABySS'
-    trinity: 'Trinity'
+    dbg: "dbg"
+    ibda_tran: "IDBA-tran"
+    idba_mt: "IDBA-MT"
+    idba_mt_fasta: "IDBA-MT"
+    megahit: "MEGAHIT"
+    oases: "Oases"
+    rnaspades: "rnaSPAdes"
+    soap-denovo-trans: "SOAPdenovo-Trans"
+    soap_denovo_trans: "SOAPdenovo-Trans"
+    transabyss: "Trans-ABySS"
+    transabyss_transabyss: "Trans-ABySS"
+    trinity: "Trinity"
 
   environments:
-    oak: 'oak' 
-    seawater: 'seawater' 
-    healthy_gut: 'healthy gut' 
-    moss: 'moss'
-    freshwater: 'freshwater'
-    diseased_gut: 'diseased gut'
+    oak: "oak"
+    moss: "moss"
+    seawater: "seawater"
+    freshwater: "freshwater"
+    healthy_gut: "healthy gut"
+    diseased_gut: "diseased gut"
+
+  recovery_plot:
+    bad: "artifacts"
+    good: "reasonably well recovered"
 
 read_length: 126
 
 environment_for_legend_display: "healthy_gut"
 
 de_image:
-  gene_assembler_shortening: 
+  gene_assembler_shortening:
     healthy_gut: rnaSPAdes
     freshwater: Trinity
     seawater: Trinity
   orthogroup_assembler_shortening:
-    healhty_gut: rnaSPAdes
+    healthy_gut: rnaSPAdes
